@@ -312,6 +312,22 @@ class Controller {
       return next(err)
     }
   }
+
+  static async toggleEmployeeStatus(req, res, next) {
+    try {
+      const employee = await Employee.findByPk(req.params.id)
+
+      if (!employee) {
+        throw { code: HttpStatusCode.NotFound, message: 'Employee not found' }
+      }
+
+      await employee.update({ isActive: !employee.isActive })
+
+      return res.status(HTTP_OK).json(api({ id: employee.id, isActive: employee.isActive }, HTTP_OK))
+    } catch (err) {
+      return next(err)
+    }
+  }
 }
 
 module.exports = Controller

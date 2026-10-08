@@ -208,6 +208,22 @@ class Controller {
       return next(err)
     }
   }
+
+  static async toggleUserStatus(req, res, next) {
+    try {
+      const user = await User.findByPk(req.params.id)
+
+      if (!user) {
+        throw { code: HttpStatusCode.NotFound, message: 'User not found' }
+      }
+
+      await user.update({ isActive: !user.isActive })
+
+      return res.status(HTTP_OK).json(api({ id: user.id, isActive: user.isActive }, HTTP_OK))
+    } catch (err) {
+      return next(err)
+    }
+  }
 }
 
 module.exports = Controller
