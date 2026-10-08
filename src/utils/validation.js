@@ -10,7 +10,7 @@ const validateRequest = (schema, req) => {
 
       if (!Array.isArray(issues) || issues.length === 0) {
         throw {
-          code: HttpStatusCode.UnprocessableEntity,
+          code: HttpStatusCode.BadRequest,
           message: 'Invalid request body'
         }
       }
@@ -22,13 +22,13 @@ const validateRequest = (schema, req) => {
 
       if (!messages[0] || messages[0].path === '') {
         throw {
-          code: HttpStatusCode.UnprocessableEntity,
+          code: HttpStatusCode.BadRequest,
           message: messages[0]?.message || 'Invalid request body'
         }
       }
 
       throw {
-        code: HttpStatusCode.UnprocessableEntity,
+        code: HttpStatusCode.BadRequest,
         message: `${messages[0].path}: ${messages[0].message}`
       }
     }

@@ -1,7 +1,6 @@
 const { api } = require('../../../src/utils/api')
 const db = require('../../../db/models')
 const { HttpStatusCode } = require('axios')
-
 const HTTP_OK = HttpStatusCode.Ok
 
 class Controller {

@@ -17,7 +17,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         primaryKey: true
       },
-      userId: {
+      user_id: {
         type: DataTypes.STRING,
         allowNull: false,
         field: 'user_id',
@@ -34,31 +34,32 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false
       },
-      entityId: {
+      entity_id: {
         type: DataTypes.STRING,
         allowNull: false,
         field: 'entity_id'
       },
-      oldData: {
+      old_data: {
         type: DataTypes.JSONB,
         allowNull: true,
         field: 'old_data'
       },
-      newData: {
+      new_data: {
         type: DataTypes.JSONB,
         allowNull: true,
         field: 'new_data'
       },
-      createdAt: {
+      created_at: {
         type: DataTypes.DATE,
         allowNull: false,
+        defaultValue: DataTypes.NOW,
         field: 'created_at'
       }
     },
     {
       sequelize,
       modelName: 'AuditLog',
-      tableName: 'auditlogs',
+      tableName: 'audit_logs',
       timestamps: true,
       underscored: true,
       updatedAt: false

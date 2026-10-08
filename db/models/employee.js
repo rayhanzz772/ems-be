@@ -1,5 +1,6 @@
 'use strict'
 const { Model } = require('sequelize')
+const cuid = require('cuid')
 module.exports = (sequelize, DataTypes) => {
   class Employee extends Model {
     static associate(models) {
@@ -14,21 +15,22 @@ module.exports = (sequelize, DataTypes) => {
     {
       id: {
         type: DataTypes.STRING,
+        defaultValue: cuid,
         allowNull: false,
         primaryKey: true
       },
-      employeeCode: {
+      employee_code: {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
         field: 'employee_code'
       },
-      firstName: {
+      first_name: {
         type: DataTypes.STRING,
         allowNull: false,
         field: 'first_name'
       },
-      lastName: {
+      last_name: {
         type: DataTypes.STRING,
         allowNull: false,
         field: 'last_name'
@@ -38,12 +40,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         unique: true
       },
-      phoneNumber: {
+      phone_number: {
         type: DataTypes.STRING,
         allowNull: true,
         field: 'phone_number'
       },
-      departmentId: {
+      department_id: {
         type: DataTypes.STRING,
         allowNull: false,
         field: 'department_id',
@@ -61,7 +63,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: true
       },
-      hireDate: {
+      hire_date: {
         type: DataTypes.DATE,
         allowNull: false,
         field: 'hire_date'
@@ -70,17 +72,19 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: true
       },
-      createdAt: {
+      created_at: {
         type: DataTypes.DATE,
         allowNull: false,
+        defaultValue: DataTypes.NOW,
         field: 'created_at'
       },
-      updatedAt: {
+      updated_at: {
         type: DataTypes.DATE,
         allowNull: false,
+        defaultValue: DataTypes.NOW,
         field: 'updated_at'
       },
-      deletedAt: {
+      deleted_at: {
         type: DataTypes.DATE,
         allowNull: true,
         field: 'deleted_at'

@@ -7,5 +7,6 @@ router.get('/status', (req, res) => {
 
 router.use('/auth', require('./modules/auth/index'))
 router.use('/users', require('./modules/user/index'))
+router.use('/employees', require('./modules/employee/index'))
 
 module.exports = router
