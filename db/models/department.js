@@ -1,30 +1,29 @@
 'use strict'
 const { Model } = require('sequelize')
 module.exports = (sequelize, DataTypes) => {
-  class User extends Model {
+  class Department extends Model {
     static associate(models) {
-      User.hasMany(models.AuditLog, {
-        foreignKey: 'user_id',
-        as: 'auditLogs'
+      Department.hasMany(models.Employee, {
+        foreignKey: 'department_id',
+        as: 'employees'
       })
     }
   }
 
-  User.init(
+  Department.init(
     {
       id: {
         type: DataTypes.STRING,
         allowNull: false,
         primaryKey: true
       },
-      email: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
-      },
-      password: {
+      name: {
         type: DataTypes.STRING,
         allowNull: false
+      },
+      description: {
+        type: DataTypes.STRING,
+        allowNull: true
       },
       createdAt: {
         type: DataTypes.DATE,
@@ -35,21 +34,15 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         allowNull: false,
         field: 'updated_at'
-      },
-      deletedAt: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        field: 'deleted_at'
       }
     },
     {
       sequelize,
-      modelName: 'User',
-      tableName: 'users',
+      modelName: 'Department',
+      tableName: 'departments',
       timestamps: true,
-      underscored: true,
-      paranoid: true
+      underscored: true
     }
   )
-  return User
+  return Department
 }
