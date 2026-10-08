@@ -11,6 +11,7 @@ const helmet = require('helmet')
 const errorMiddleware = require('./src/middleware/errorMiddleware')
 const db = require('./db/models')
 const { api } = require('./src/utils/api')
+const openApiSpec = require('./src/docs/openapi')
 
 const mode = process.env.NODE_ENV || 'development'
 const allowedOriginsRaw = process.env.ALLOWED_ORIGINS || ''
@@ -42,19 +43,31 @@ const corsOptions = (req, callback) => {
 
   if (mode === 'production') {
     if (isAllowed()) {
-      return callback(null, { origin: true, credentials: true })
+      return callback(null, {
+        origin: true,
+        credentials: true,
+        exposedHeaders: ['Content-Disposition']
+      })
     }
     return callback(null, false)
   }
 
   if (isSecure) {
     if (isAllowed()) {
-      return callback(null, { origin: true, credentials: true })
+      return callback(null, {
+        origin: true,
+        credentials: true,
+        exposedHeaders: ['Content-Disposition']
+      })
     }
     return callback(null, false)
   }
 
-  return callback(null, { origin: true, credentials: true })
+  return callback(null, {
+    origin: true,
+    credentials: true,
+    exposedHeaders: ['Content-Disposition']
+  })
 }
 
 app.use(morgan('dev'))
@@ -94,6 +107,10 @@ app.get('/health', async (req, res, next) => {
   } catch (err) {
     return next({ statusCode: 503, message: 'Service unavailable' })
   }
+})
+
+app.get('/api-docs/openapi.json', (req, res) => {
+  return res.json(openApiSpec)
 })
 
 app.use('/api/v1', route)
