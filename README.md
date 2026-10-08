@@ -60,7 +60,9 @@ Employee Management System (EMS) is a Node.js + Express + Sequelize backend for 
 
 The ERD image is already available here:
 
-- `public/assets/erd.png`
+<p align="center">
+  <img src="./public/assets/erd.png" alt="ERD" width="900">
+</p>
 
 You can also open it visually in the project or share it with the team for database reference.
 
