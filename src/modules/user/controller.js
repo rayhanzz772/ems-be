@@ -267,6 +267,19 @@ class Controller {
       return next(err)
     }
   }
+
+  static async getAllRoles(req, res, next) {
+    try {
+      const roles = await db.Role.findAll({
+        attributes: ['id', 'name', 'status', 'created_at', 'updated_at'],
+        order: [['name', 'ASC']],
+        where: { status: true }
+      })
+      return res.status(HTTP_OK).json(api(roles, HTTP_OK))
+    } catch (err) {
+      return next(err)
+    }
+  }
 }
 
 module.exports = Controller

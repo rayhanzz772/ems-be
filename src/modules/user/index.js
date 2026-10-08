@@ -12,5 +12,6 @@ router.post('/create', adminOnly, Controller.createUser)
 router.put('/:id/update', adminOnly, Controller.updateUser)
 router.delete('/:id/delete', adminOnly, Controller.deleteUser)
 router.patch('/:id/status', adminOnly, Controller.updateUserStatus)
+router.get('/get-all-roles', Controller.getAllRoles)
 
 module.exports = router
