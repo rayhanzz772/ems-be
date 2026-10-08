@@ -86,7 +86,48 @@ const createEmployeeCsv = async (employees) => {
 	return Buffer.concat([Buffer.from('\uFEFF'), csv])
 }
 
+const auditLogCsv = async (logs) => {
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('Audit Logs')
+
+    worksheet.columns = [
+        { header: 'ID', key: 'id', width: 24 },
+        { header: 'User ID', key: 'user_id', width: 24 },
+        { header: 'User Email', key: 'user_email', width: 32 },
+        { header: 'Action', key: 'action', width: 14 },
+        { header: 'Entity', key: 'entity', width: 20 },
+        { header: 'Entity ID', key: 'entity_id', width: 24 },
+        { header: 'Old Data', key: 'old_data', width: 48 },
+        { header: 'New Data', key: 'new_data', width: 48 },
+        { header: 'Created At', key: 'created_at', width: 24 }
+    ]
+
+    worksheet.addRows(
+        logs.map((log) => {
+            const row = {
+                ...log,
+                old_data: log.old_data == null ? '' : JSON.stringify(log.old_data),
+                new_data: log.new_data == null ? '' : JSON.stringify(log.new_data)
+            }
+
+            for (const [key, value] of Object.entries(row)) {
+                if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
+                    row[key] = `'${value}`
+                }
+            }
+
+            return row
+        })
+    )
+
+    return Buffer.concat([
+        Buffer.from('\uFEFF'),
+        await workbook.csv.writeBuffer({ sheetName: 'Audit Logs' })
+    ])
+}
+
 module.exports = {
 	createEmployeeWorkbook,
-	createEmployeeCsv
+	createEmployeeCsv,
+    auditLogCsv
 }

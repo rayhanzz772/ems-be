@@ -9,5 +9,6 @@ router.use('/auth', require('./modules/auth/index'))
 router.use('/users', require('./modules/user/index'))
 router.use('/departments', require('./modules/department/index'))
 router.use('/employees', require('./modules/employee/index'))
+router.use('/audit-logs', require('./modules/audit-log/index'))
 
 module.exports = router
