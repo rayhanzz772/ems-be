@@ -7,7 +7,7 @@ const { HttpStatusCode } = require('axios')
 const User = db.User
 
 class Controller {
-  static async login(req, res) {
+  static async login(req, res, next) {
     try {
       const { email, password } = req.body
 
@@ -56,24 +56,22 @@ class Controller {
         .status(HttpStatusCode.Ok)
         .json(api(userSafe, HttpStatusCode.Ok, { req }))
     } catch (err) {
-      const code = err?.code ?? HttpStatusCode.InternalServerError
-      return res.status(code).json(api(null, code, { err }))
+      return next(err)
     }
   }
 
-  static async logout(req, res) {
+  static async logout(req, res, next) {
     try {
       res.clearCookie('token')
       return res
         .status(HttpStatusCode.Ok)
         .json(api(null, HttpStatusCode.Ok, { req }))
     } catch (err) {
-      const code = err?.code ?? HttpStatusCode.InternalServerError
-      return res.status(code).json(api(null, code, { err }))
+      return next(err)
     }
   }
 
-  static async getMe(req, res) {
+  static async getMe(req, res, next) {
     try {
       const userId = req.user.id
 
@@ -94,8 +92,7 @@ class Controller {
         .status(HttpStatusCode.Ok)
         .json(api(result, HttpStatusCode.Ok, { req }))
     } catch (err) {
-      const code = err?.code ?? HttpStatusCode.InternalServerError
-      return res.status(code).json(api(null, code, { err }))
+      return next(err)
     }
   }
 }

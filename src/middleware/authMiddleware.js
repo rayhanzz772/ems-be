@@ -4,10 +4,7 @@ const authMiddleware = (req, res, next) => {
   const token = req.cookies?.token || req.headers.authorization?.split(' ')[1]
 
   if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'No token provided'
-    })
+    return next({ statusCode: 401, message: 'No token provided' })
   }
 
   try {
@@ -21,19 +18,12 @@ const authMiddleware = (req, res, next) => {
     }
 
     if (req.user.status === false) {
-      return res.status(403).json({
-        success: false,
-        message: 'User is inactive or suspended'
-      })
+      return next({ statusCode: 403, message: 'User is inactive or suspended' })
     }
 
     next()
   } catch (err) {
-    console.error('❌ JWT verification error:', err.message)
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid or expired token'
-    })
+    return next({ statusCode: 401, message: 'Invalid or expired token' })
   }
 }
 

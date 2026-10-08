@@ -4,7 +4,7 @@ const { HttpStatusCode } = require('axios')
 const HTTP_OK = HttpStatusCode.Ok
 
 class Controller {
-  static async getUser(req, res) {
+  static async getUser(req, res, next) {
     try {
       const limit = req.query.per_page || 10
       const page = req.query.page || 1
@@ -66,9 +66,7 @@ class Controller {
       return res.status(HTTP_OK).json(api(result))
     }
     catch (err) {
-      console.error(err)
-      const code = err?.code ?? HttpStatusCode.InternalServerError
-      return res.status(code).json(api(null, code, { err }))
+      return next(err)
     }
   }
 }

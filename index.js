@@ -8,6 +8,9 @@ const route = require('./src/routes')
 const { createServer } = require('node:http')
 const cookieParser = require('cookie-parser')
 const helmet = require('helmet')
+const errorMiddleware = require('./src/middleware/errorMiddleware')
+const db = require('./db/models')
+const { api } = require('./src/utils/api')
 
 const mode = process.env.NODE_ENV || 'development'
 const allowedOriginsRaw = process.env.ALLOWED_ORIGINS || ''
@@ -77,15 +80,29 @@ app.use(
   })
 )
 
+app.get('/health', async (req, res, next) => {
+  try {
+    await db.sequelize.authenticate()
+
+    return res.status(200).json(
+      api({
+        status: 'ok',
+        database: 'connected',
+        timestamp: new Date().toISOString()
+      }, 200)
+    )
+  } catch (err) {
+    return next({ statusCode: 503, message: 'Service unavailable' })
+  }
+})
+
 app.use('/api/v1', route)
 
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-    data: null
-  })
+app.use((req, res, next) => {
+  next({ statusCode: 404, message: 'Route not found' })
 })
+
+app.use(errorMiddleware)
 
 const port = process.env.PORT || 8000
 const server = createServer(app)
