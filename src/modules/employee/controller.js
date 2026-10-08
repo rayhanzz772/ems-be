@@ -4,9 +4,35 @@ const { HttpStatusCode } = require('axios')
 const { validateRequest } = require('../../utils/validation')
 const { createEmployeeSchema, updateEmployeeSchema } = require('./schema')
 const { createAuditLog } = require('../../utils/auditLog')
+const { createEmployeeWorkbook, createEmployeeCsv } = require('../../utils/excel')
 const HTTP_OK = HttpStatusCode.Ok
 const Employee = db.Employee
 const { employeeCodeGenerator } = require('../../utils/employee-code')
+const findEmployeesForExport = () =>
+  db.sequelize.query(
+    `
+    SELECT
+      e.id,
+      e.employee_code,
+      e.first_name,
+      e.last_name,
+      e.email,
+      e.phone_number,
+      e.department_id,
+      d.name AS department_name,
+      e.position,
+      e.status,
+      e.hire_date,
+      e.address,
+      e.created_at,
+      e.updated_at
+    FROM employees e
+    LEFT JOIN departments d ON d.id = e.department_id
+    WHERE e.deleted_at IS NULL
+    ORDER BY e.created_at DESC
+    `,
+    { type: db.Sequelize.QueryTypes.SELECT }
+  )
 
 const normalizeEmployeeBody = (body = {}) => ({
   employee_code: employeeCodeGenerator(),
@@ -183,6 +209,24 @@ class Controller {
       }
 
       return res.status(HTTP_OK).json(api(employee))
+    } catch (err) {
+      return next(err)
+    }
+  }
+
+  static async exportEmployeesCsv(req, res, next) {
+    try {
+      const employees = await findEmployeesForExport()
+      const csv = await createEmployeeCsv(employees)
+      const date = new Date().toISOString().slice(0, 10)
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="employees-${date}.csv"`
+      )
+
+      return res.status(HTTP_OK).send(csv)
     } catch (err) {
       return next(err)
     }
