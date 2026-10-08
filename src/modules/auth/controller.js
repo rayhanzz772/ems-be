@@ -9,7 +9,12 @@ const User = db.User
 class Controller {
   static async login(req, res, next) {
     try {
-      const { email, password } = req.body
+      const email = req.body?.email
+      const password = req.body?.password
+
+      if (!email || !password) {
+        throw { code: HttpStatusCode.BadRequest, message: 'Email and password are required' }
+      }
 
       const user = await User.findOne({
         where: {
@@ -48,6 +53,7 @@ class Controller {
 
       const userSafe = {
         id: user.id,
+        token: token,
         email: user.email,
         role: user.role
       }

@@ -13,5 +13,6 @@ router.post('/create', adminOnly, Controller.createEmployee)
 router.put('/:id/update', adminOnly, Controller.updateEmployee)
 router.delete('/:id/delete', adminOnly, Controller.deleteEmployee)
 router.patch('/:id/status', adminOnly, Controller.toggleEmployeeStatus)
+router.get('/get-all-departments', Controller.getAllDepartments)
 
 module.exports = router

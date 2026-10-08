@@ -189,7 +189,8 @@ module.exports = {
       }, {
         parameters: [
           ...paginationParameters,
-          ...sortParameters(['name', 'created_at', 'updated_at'])
+          query('status', { type: 'boolean' }),
+          ...sortParameters(['name', 'status', 'created_at', 'updated_at'])
         ]
       })
     },
@@ -336,8 +337,8 @@ module.exports = {
         type: 'object',
         required: ['email', 'password'],
         properties: {
-          email: { type: 'string', format: 'email', example: 'admin@example.com' },
-          password: { type: 'string', format: 'password', example: 'Password123!' }
+          email: { type: 'string', format: 'email', example: 'admin@company.com' },
+          password: { type: 'string', format: 'password', example: 'admin123' }
         }
       },
       UserCreateRequest: {
@@ -365,7 +366,8 @@ module.exports = {
         required: ['name'],
         properties: {
           name: { type: 'string', maxLength: 255 },
-          description: { type: 'string', maxLength: 255 }
+          description: { type: 'string', maxLength: 255 },
+          status: { type: 'boolean', default: true }
         }
       },
       DepartmentUpdateRequest: {
@@ -373,7 +375,8 @@ module.exports = {
         minProperties: 1,
         properties: {
           name: { type: 'string', maxLength: 255 },
-          description: { type: 'string', maxLength: 255 }
+          description: { type: 'string', maxLength: 255 },
+          status: { type: 'boolean' }
         }
       },
       EmployeeCreateRequest: {

@@ -329,6 +329,19 @@ class Controller {
       return next(err)
     }
   }
+
+  static async getAllDepartments(req, res, next) {
+    try {
+      const departments = await db.Department.findAll({
+        attributes: ['id', 'name'],
+        order: [['name', 'ASC']],
+        where: { status: true }
+      })
+      return res.status(HTTP_OK).json(api(departments, HTTP_OK))
+    } catch (err) {
+      return next(err)
+    }
+  }
 }
 
 module.exports = Controller

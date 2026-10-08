@@ -18,6 +18,7 @@ class Controller {
            AND e.deleted_at IS NULL
           GROUP BY d.id, d.name
           ORDER BY employee_count DESC, d.name ASC
+          LIMIT 5
           `,
           { type: db.Sequelize.QueryTypes.SELECT }
         ),
@@ -44,7 +45,7 @@ class Controller {
           FROM audit_logs a
           LEFT JOIN users u ON u.id = a.user_id
           ORDER BY a.created_at DESC
-          LIMIT 10
+          LIMIT 5
           `,
           { type: db.Sequelize.QueryTypes.SELECT }
         )

@@ -6,7 +6,6 @@ const limiter = require('../../utils/limiter')
 
 router.use(limiter)
 router.use(authMiddleware)
-router.use(adminOnly)
 router.get('/export', Controller.exportAuditLogs)
 router.get('/', Controller.getAuditLogs)
 

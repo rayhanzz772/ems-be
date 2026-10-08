@@ -10,6 +10,7 @@ module.exports = {
         id: cuid(),
         name: 'Engineering',
         description: 'Software and product engineering team',
+        status: true,
         created_at: now,
         updated_at: now
       },
@@ -17,6 +18,7 @@ module.exports = {
         id: cuid(),
         name: 'Human Resources',
         description: 'Recruitment, payroll, and employee support',
+        status: true,
         created_at: now,
         updated_at: now
       },
@@ -24,6 +26,7 @@ module.exports = {
         id: cuid(),
         name: 'Finance',
         description: 'Accounting and financial operations',
+        status: false,
         created_at: now,
         updated_at: now
       }
