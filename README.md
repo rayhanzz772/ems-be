@@ -58,6 +58,8 @@ Employee Management System (EMS) is a Node.js + Express + Sequelize backend for 
 
 ## ERD / Database Design
 
+The ERD (Entity Relationship Diagram) shows the structure of the database and the relationships between different entities.
+
 The ERD image is already available here:
 
 <p align="center">

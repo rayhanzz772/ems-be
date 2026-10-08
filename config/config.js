@@ -8,6 +8,8 @@ module.exports = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: process.env.DB_CONNECTION,
+    seederStorage: 'sequelize',
+    seederStorageTableName: 'SequelizeData',
     timezone: '+07:00',
     dialectOptions: {
       bigNumberStrings: true
@@ -20,6 +22,8 @@ module.exports = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: process.env.DB_CONNECTION,
+    seederStorage: 'sequelize',
+    seederStorageTableName: 'SequelizeData',
     timezone: '+07:00',
     dialectOptions: {
       bigNumberStrings: true
@@ -32,6 +36,8 @@ module.exports = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: process.env.DB_CONNECTION,
+    seederStorage: 'sequelize',
+    seederStorageTableName: 'SequelizeData',
     timezone: '+07:00',
     dialectOptions: {
       bigNumberStrings: true
@@ -44,6 +50,8 @@ module.exports = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: process.env.DB_CONNECTION,
+    seederStorage: 'sequelize',
+    seederStorageTableName: 'SequelizeData',
     timezone: '+07:00',
     pool: {
       max: 20,
