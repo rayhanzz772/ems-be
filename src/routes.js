@@ -5,6 +5,7 @@ router.get('/status', (req, res) => {
   res.send('Running ⚡')
 })
 
+router.use('/dashboard', require('./modules/dashboard/index'))
 router.use('/auth', require('./modules/auth/index'))
 router.use('/users', require('./modules/user/index'))
 router.use('/departments', require('./modules/department/index'))

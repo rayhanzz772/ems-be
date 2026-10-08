@@ -89,6 +89,7 @@ module.exports = {
   tags: [
     { name: 'Health' },
     { name: 'System' },
+    { name: 'Dashboard' },
     { name: 'Auth' },
     { name: 'Users' },
     { name: 'Departments' },
@@ -105,6 +106,12 @@ module.exports = {
     '/api/v1/status': {
       get: operation('System', 'Check that the API process is responding', {
         200: { description: 'Running status text', content: { 'text/plain': { schema: { type: 'string' } } } }
+      })
+    },
+    '/api/v1/dashboard': {
+      get: secured('Dashboard', 'Get dashboard metrics and recent activity', {
+        200: jsonResponse('Dashboard summary'),
+        ...standardResponses
       })
     },
     '/api/v1/auth/login': {
