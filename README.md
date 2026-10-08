@@ -1,224 +1,308 @@
-# 🚀 Express Template (Node.js + Sequelize + Zod)
+# Employee Management System Backend
 
-A clean, modern, and scalable **Express.js project template** built for real-world backend development.  
-This template follows a **modular structure**, supports **Sequelize ORM**, **Zod validation**, and includes helpers for clean response handling and validation.
+Employee Management System (EMS) is a Node.js + Express + Sequelize backend for managing employees, departments, users, roles, and audit logs. It exposes REST API endpoints with JWT authentication, role-based authorization, and CSV export support.
 
----
+## Demo Live
 
-## 🧱 Features
+- Frontend / production demo: https://ems.rayhancreative.web.id
+- API base URL: http://localhost:8000 (local development)
 
-✅ Modular architecture (controllers, routes, middlewares, utils)  
-✅ Sequelize ORM (with CLI migrations & models under `/db/`)  
-✅ Zod for schema-based validation  
-✅ Centralized API response formatter  
-✅ Error-handling middleware  
-✅ Environment variable configuration with `dotenv`  
-✅ Ready for REST API projects or as backend for fullstack apps  
+## Features
 
----
+- Authentication and JWT-based session handling
+- Role-based access control with `ADMIN`, `HR`, and `EMPLOYEE`
+- User management
+- Department management
+- Employee management
+- Audit log tracking for create/update/delete actions
+- CSV export for employees and audit logs
+- Dashboard summary for employee and activity insights
+- OpenAPI contract available at `/api-docs/openapi.json`
 
-## 📂 Folder Structure
+## Tech Stack
 
-```
+- Node.js
+- Express
+- Sequelize ORM
+- PostgreSQL
+- JWT
+- Zod validation
+- ExcelJS for CSV export
+- CORS, Helmet, rate limiting
 
-express-template/
-├── src/
-│   ├── routes/                # Route definitions
-│   │   └── index.js
-│   ├── controllers/           # Controller logic
-│   │   └── example.controller.js
-│   ├── middlewares/           # Global middlewares
-│   ├── utils/                 # Helper functions (api, validation, etc.)
-│   │   ├── api.js
-│   │   └── validation.js
-│   └── config/
-│       └── config.js          # dotenv loader and config manager
-│
-├── db/
-│   ├── models/                # Sequelize models
-│   ├── migrations/            # Migration files
-│   ├── seeders/               # Seeder files
-│   └── config/config.json     # Sequelize DB config
-│
-├── .env.example               # Sample environment variables
-├── .sequelizerc               # Sequelize CLI paths configuration
-├── .gitignore
-├── package.json
-└── README.md
-
-````
-
----
-
-## ⚙️ Installation
-
-Clone the repository:
+## Project Structure
 
 ```bash
-git clone https://github.com/rayhanzz772/express-template.git
-cd express-template
-````
+.
+├── config/
+│   └── config.js
+├── db/
+│   ├── migrations/
+│   ├── models/
+│   └── seeders/
+├── public/
+│   └── assets/
+│       └── erd.png
+├── src/
+│   ├── docs/
+│   ├── middleware/
+│   ├── modules/
+│   ├── routes.js
+│   └── utils/
+├── index.js
+├── package.json
+├── .env.example
+├── README.md
+└── .gitignore
+```
 
-Install dependencies:
+## ERD / Database Design
+
+The ERD image is already available here:
+
+- `public/assets/erd.png`
+
+You can also open it visually in the project or share it with the team for database reference.
+
+## Local Setup
+
+### 1) Clone the project
+
+```bash
+git clone <repository-url>
+cd employee-management-system
+```
+
+### 2) Install dependencies
 
 ```bash
 npm install
 ```
 
----
+### 3) Configure environment variables
 
-## 🧾 Environment Setup
-
-Create a `.env` file based on `.env.example`:
-
-```
-PORT=5000
-NODE_ENV=development
-
-DB_DIALECT=postgres
-DB_HOST=localhost
-DB_USER=postgres
-DB_PASS=123456
-DB_NAME=express_template
-```
-
----
-
-## 🧩 Database Setup (Sequelize)
-
-Initialize Sequelize project (if needed):
+Copy `.env.example` to `.env` and update the values as needed.
 
 ```bash
-npx sequelize-cli init
+copy .env.example .env
 ```
 
-Run migrations:
+Example:
+
+```env
+NODE_ENV=development
+PORT=8000
+JWT_KEY=your_jwt_secret
+DB_USER=postgres
+DB_PASS=postgres
+DB_NAME=postgres
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_CONNECTION=postgresql
+```
+
+### 4) Create database and run migrations
 
 ```bash
 npx sequelize-cli db:migrate
 ```
 
-Undo migration (optional):
+### 5) Seed the database
 
 ```bash
-npx sequelize-cli db:migrate:undo
+npm run seed
 ```
 
----
+### 6) Run the server
 
-## 🧠 Validation Example (Zod)
+Development mode:
 
-Each request schema is defined using **Zod** for strict validation.
-
-Example:
-`src/modules/user/schema.js`
-
-```js
-const { z } = require('zod')
-
-const listSchema = z.object({
-  per_page: z.string().regex(/^\d+$/).transform(Number).optional(),
-  page: z.string().regex(/^\d+$/).transform(Number).optional(),
-  q: z.string().trim().optional().nullable()
-})
-
-module.exports = { listSchema }
+```bash
+npm run dev
 ```
 
-And used in controller:
+Or direct run:
 
-```js
-const { listSchema } = require('./schema')
-const { validateRequest } = require('../../utils/validation')
-
-const query = validateRequest(listSchema, req, 'query')
+```bash
+npm start
 ```
 
----
+The application will run on:
 
-## 🧱 API Example
-
-### Controller
-
-```js
-static async getUser(req, res) {
-  try {
-    const query = validateRequest(listSchema, req, 'query')
-    const users = await db.User.findAll()
-    return res.status(200).json(api.results(users, 200))
-  } catch (err) {
-    console.error(err)
-    return res.status(500).json(api(null, 500, { err }))
-  }
-}
+```bash
+http://localhost:8000
 ```
 
-### Route
+### 7) Health check
 
-```js
-const router = require('express').Router()
-const UserController = require('../controllers/user.controller')
-
-router.get('/users', UserController.getUser)
-
-module.exports = router
+```bash
+curl http://localhost:8000/health
 ```
 
----
-
-## 🧰 Scripts
-
-| Command                             | Description                         |
-| ----------------------------------- | ----------------------------------- |
-| `npm run dev`                       | Run development server with Nodemon |
-| `npm start`                         | Run production server               |
-| `npx sequelize-cli db:migrate`      | Run all migrations                  |
-| `npx sequelize-cli db:seed:all`     | Run all seeders                     |
-| `npx sequelize-cli db:migrate:undo` | Rollback last migration             |
-
----
-
-## 🔒 API Response Format
-
-Unified JSON format via `api.results()` and `api()` helpers:
+Expected response:
 
 ```json
 {
   "success": true,
   "message": "OK",
   "metadata": {},
-  "data": { ... }
+  "data": {
+    "status": "ok",
+    "database": "connected",
+    "timestamp": "2026-10-08T00:00:00.000Z"
+  }
 }
 ```
 
-Error example:
+## API Documentation
 
-```json
-{
-  "success": false,
-  "message": "Validation failed",
-  "metadata": {},
-  "data": null
-}
+OpenAPI specification is available here:
+
+- `http://localhost:8000/api-docs/openapi.json`
+
+This is the contract used for frontend integration and documentation.
+
+## Main API Endpoints
+
+### Auth
+
+- `POST /api/v1/auth/login` — login and receive JWT token
+- `GET /api/v1/auth/get-me` — get current logged-in user
+- `POST /api/v1/auth/logout` — clear auth token
+
+### Dashboard
+
+- `GET /api/v1/dashboard` — summary of employee count, department overview, and recent activity
+
+### Roles
+
+- `GET /api/v1/roles`
+- `POST /api/v1/roles/create`
+- `GET /api/v1/roles/:id/detail`
+- `PUT /api/v1/roles/:id/update`
+- `DELETE /api/v1/roles/:id/delete`
+
+### Users
+
+- `GET /api/v1/users`
+- `POST /api/v1/users/create`
+- `GET /api/v1/users/:id/detail`
+- `PUT /api/v1/users/:id/update`
+- `DELETE /api/v1/users/:id/delete`
+- `PATCH /api/v1/users/:id/status`
+
+### Departments
+
+- `GET /api/v1/departments`
+- `POST /api/v1/departments/create`
+- `GET /api/v1/departments/:id/detail`
+- `PUT /api/v1/departments/:id/update`
+- `DELETE /api/v1/departments/:id/delete`
+
+### Employees
+
+- `GET /api/v1/employees`
+- `POST /api/v1/employees/create`
+- `GET /api/v1/employees/:id/detail`
+- `PUT /api/v1/employees/:id/update`
+- `DELETE /api/v1/employees/:id/delete`
+- `PATCH /api/v1/employees/:id/status`
+- `GET /api/v1/employees/export`
+
+### Audit Logs
+
+- `GET /api/v1/audit-logs`
+- `GET /api/v1/audit-logs/export`
+
+## Common Query Parameters
+
+The list endpoints support pagination, sorting, and filtering.
+
+### Pagination
+
+- `page` — default `1`
+- `per_page` — default `10`, max `100`
+
+### Search
+
+- `q` — free text search
+
+### Sorting
+
+- `sort_by`
+- `sort_order` — `ASC` or `DESC`
+
+### Examples
+
+```bash
+GET /api/v1/employees?page=1&per_page=10&q=ali
+GET /api/v1/users?role=ADMIN&status=true
+GET /api/v1/departments?sort_by=name&sort_order=ASC
+GET /api/v1/audit-logs?action=CREATE&date_from=2026-10-01
 ```
 
----
+## Role Model
 
-## 🧑‍💻 Author
+Supported roles in the system:
 
-**Rayhan Z**
-Backend Developer | Node.js & Express Enthusiast
-🔗 [GitHub](https://github.com/rayhanzz772)
+- `ADMIN`
+- `HR`
+- `EMPLOYEE`
 
----
+Access is controlled using JWT and role middleware.
 
-## 🪄 License
+## Running Tests
 
-This project is licensed under the **MIT License**.
-Feel free to use and modify for your own backend projects.
+This project currently does not include a dedicated automated test framework like Jest or Vitest. For validation, use manual smoke testing through the running app.
 
----
+Recommended local validation flow:
 
-> 💡 *Tip:* Fork this repo as your boilerplate backend for all new projects — just replace `/modules` content with your own logic, and you’re ready to build production-grade APIs!
+```bash
+npm install
+npx sequelize-cli db:migrate
+npm run seed
+npm run dev
+```
 
----
+Then test the following endpoints:
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8000/api/v1/auth/login
+curl http://localhost:8000/api/v1/dashboard
+```
+
+If you want to add automated tests later, this project is structured to support it with a dedicated `test/` folder and a standard Node.js test runner.
+
+## Environment Notes
+
+- The backend expects PostgreSQL to be running locally or in your target environment.
+- JWT secret and DB credentials must be valid in `.env`.
+- `NODE_ENV` should be set according to the environment (`development`, `production`, etc.).
+
+## Production / Deployment Notes
+
+- Ensure the database is migrated and seeded before deployment.
+- Set `JWT_KEY` securely in production.
+- Configure environment-specific `PORT`, `DB_*`, and `NODE_ENV` values.
+- The main API should be served behind a proper reverse proxy (Nginx / Apache / hosting platform) when deployed.
+
+## Useful Commands
+
+```bash
+npm install
+npm run dev
+npm start
+npm run migrate
+npm run seed
+npm run seed:undo
+npm run migrate:undo
+```
+
+## Contact / Maintainer
+
+For questions or technical support, contact the project maintainer or the development team managing this repository.
+
+## License
+
+This project is intended for internal or project-based use unless otherwise specified by the repository owner.
