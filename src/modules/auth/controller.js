@@ -6,6 +6,8 @@ const { HttpStatusCode } = require('axios')
 
 const User = db.User
 
+const getUserRoleName = (user) => user?.role?.name || 'EMPLOYEE'
+
 class Controller {
   static async login(req, res, next) {
     try {
@@ -19,7 +21,8 @@ class Controller {
       const user = await User.findOne({
         where: {
           email: email
-        }
+        },
+        include: [{ model: db.Role, as: 'role', attributes: ['id', 'name'] }]
       })
 
       if (!user) {
@@ -36,8 +39,11 @@ class Controller {
         throw { code: 400, message: 'Invalid Password' }
       }
 
+      const roleName = getUserRoleName(user)
       const payload = {
-        userId: user.id
+        userId: user.id,
+        role: roleName,
+        status: user.status
       }
 
       const token = jwt.sign(payload, process.env.JWT_KEY, {
@@ -55,7 +61,7 @@ class Controller {
         id: user.id,
         token: token,
         email: user.email,
-        role: user.role
+        role: roleName
       }
 
       return res
@@ -83,6 +89,7 @@ class Controller {
 
       const user = await User.findByPk(userId, {
         attributes: { exclude: ['password'] },
+        include: [{ model: db.Role, as: 'role', attributes: ['id', 'name'] }]
       })
 
       if (!user) throw new Error('User not found')
@@ -91,7 +98,7 @@ class Controller {
         id: user.id,
         email: user.email,
         status: user.status,
-        role: user.role
+        role: getUserRoleName(user)
       }
 
       return res

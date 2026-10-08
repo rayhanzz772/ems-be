@@ -91,6 +91,7 @@ module.exports = {
     { name: 'System' },
     { name: 'Dashboard' },
     { name: 'Auth' },
+    { name: 'Roles' },
     { name: 'Users' },
     { name: 'Departments' },
     { name: 'Employees' },
@@ -128,6 +129,56 @@ module.exports = {
       get: secured('Auth', 'Get the authenticated user', {
         200: jsonResponse('Authenticated user'),
         ...standardResponses
+      })
+    },
+    '/api/v1/roles': {
+      get: secured('Roles', 'List roles', {
+        200: jsonResponse('Paginated roles'),
+        ...standardResponses
+      }, {
+        parameters: [
+          ...paginationParameters,
+          query('status', { type: 'boolean' }),
+          ...sortParameters(['name', 'status', 'created_at', 'updated_at'])
+        ]
+      })
+    },
+    '/api/v1/roles/create': {
+      post: secured('Roles', 'Create a role', {
+        201: jsonResponse('Role created'),
+        ...standardResponses
+      }, { requestBody: body('RoleCreateRequest') })
+    },
+    [idPath('/api/v1/roles', 'detail')]: {
+      get: secured('Roles', 'Get a role by ID', {
+        200: jsonResponse('Role details'),
+        404: jsonResponse('Role not found'),
+        ...standardResponses
+      }, { parameters: [idParameter] })
+    },
+    [idPath('/api/v1/roles', 'update')]: {
+      put: secured('Roles', 'Update a role', {
+        200: jsonResponse('Role updated'),
+        404: jsonResponse('Role not found'),
+        ...standardResponses
+      }, { parameters: [idParameter], requestBody: body('RoleUpdateRequest') })
+    },
+    [idPath('/api/v1/roles', 'delete')]: {
+      delete: secured('Roles', 'Delete a role', {
+        200: jsonResponse('Role deleted'),
+        404: jsonResponse('Role not found'),
+        409: jsonResponse('Role is assigned to users'),
+        ...standardResponses
+      }, { parameters: [idParameter] })
+    },
+    [idPath('/api/v1/roles', 'status')]: {
+      patch: secured('Roles', 'Toggle role active status', {
+        200: jsonResponse('Role status changed'),
+        404: jsonResponse('Role not found'),
+        ...standardResponses
+      }, {
+        parameters: [idParameter],
+        description: 'Bodyless operation. The server negates the current status.'
       })
     },
     '/api/v1/users': {
@@ -339,6 +390,24 @@ module.exports = {
         properties: {
           email: { type: 'string', format: 'email', example: 'admin@company.com' },
           password: { type: 'string', format: 'password', example: 'admin123' }
+        }
+      },
+      RoleCreateRequest: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', maxLength: 255 },
+          description: { type: 'string', maxLength: 255 },
+          status: { type: 'boolean', default: true }
+        }
+      },
+      RoleUpdateRequest: {
+        type: 'object',
+        minProperties: 1,
+        properties: {
+          name: { type: 'string', maxLength: 255 },
+          description: { type: 'string', maxLength: 255 },
+          status: { type: 'boolean' }
         }
       },
       UserCreateRequest: {

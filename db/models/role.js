@@ -1,48 +1,37 @@
 'use strict'
 const { Model } = require('sequelize')
+const cuid = require('cuid')
 module.exports = (sequelize, DataTypes) => {
-  class User extends Model {
-    static associate(models) {
-      User.hasMany(models.AuditLog, {
-        foreignKey: 'user_id',
-        as: 'auditLogs'
-      })
-      User.belongsTo(models.Role, {
+  class Role extends Model {
+      static associate(models) {
+      Role.hasMany(models.User, {
         foreignKey: 'role_id',
-        as: 'role'
+        as: 'users'
       })
     }
   }
 
-  User.init(
+  Role.init(
     {
       id: {
         type: DataTypes.STRING,
+        primaryKey: true,
         allowNull: false,
-        primaryKey: true
+        defaultValue: cuid()
       },
-      email: {
+      name: {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true
       },
-      role_id: {
+      description: {
         type: DataTypes.STRING,
-        allowNull: false,
-        field: 'role_id',
-        references: {
-          model: 'roles',
-          key: 'id'
-        }
+        allowNull: true
       },
       status: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: true
-      },
-      password: {
-        type: DataTypes.STRING,
-        allowNull: false
       },
       created_at: {
         type: DataTypes.DATE,
@@ -64,11 +53,11 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       sequelize,
-      modelName: 'User',
-      tableName: 'users',
-      underscored: true,
-      paranoid: true
+      modelName: 'Role',
+      tableName: 'roles',
+      timestamps: true,
+      underscored: true
     }
   )
-  return User
+  return Role;
 }

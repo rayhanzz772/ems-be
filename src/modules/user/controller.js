@@ -12,7 +12,21 @@ const User = db.User
 const getPublicUser = (user) => {
   const data = user.toJSON()
   delete data.password
+  delete data.role_id
+  if (data.role) {
+    data.role = data.role.name || data.role
+  }
   return data
+}
+
+const resolveRoleId = async (roleName) => {
+  const role = await db.Role.findOne({ where: { name: String(roleName).toUpperCase() } })
+
+  if (!role) {
+    throw { code: HttpStatusCode.BadRequest, message: 'Invalid role' }
+  }
+
+  return role.id
 }
 
 class Controller {
@@ -43,7 +57,7 @@ class Controller {
         if (!['ADMIN', 'HR', 'EMPLOYEE'].includes(role)) {
           throw { code: HttpStatusCode.BadRequest, message: 'Invalid role filter' }
         }
-        conditions.push('u.role = :role')
+        conditions.push('LOWER(r.name) = LOWER(:role)')
         replacements.role = role
       }
 
@@ -58,7 +72,7 @@ class Controller {
 
       const sortColumns = {
         email: 'u.email',
-        role: 'u.role',
+        role: 'r.name',
         status: 'u.status',
         created_at: 'u.created_at'
       }
@@ -73,11 +87,12 @@ class Controller {
         SELECT
           u.id,
           u.email,
-          u.role,
+          r.name AS role,
           u.status,
           u.created_at,
           u.updated_at
         FROM users u
+        LEFT JOIN roles r ON r.id = u.role_id
         ${whereClause}
         ORDER BY ${sortColumn} ${sortOrder}
         LIMIT :limit OFFSET :offset
@@ -93,6 +108,7 @@ class Controller {
         SELECT
           COUNT(*) AS total
         FROM users u
+        LEFT JOIN roles r ON r.id = u.role_id
         ${whereClause}
       `,
         {
@@ -115,14 +131,15 @@ class Controller {
   static async getUserById(req, res, next) {
     try {
       const user = await User.findByPk(req.params.id, {
-        attributes: { exclude: ['password'] }
+        attributes: { exclude: ['password', 'role_id'] },
+        include: [{ model: db.Role, as: 'role', attributes: ['id', 'name'] }]
       })
 
       if (!user) {
         throw { code: HttpStatusCode.NotFound, message: 'User not found' }
       }
 
-      return res.status(HTTP_OK).json(api(user))
+      return res.status(HTTP_OK).json(api(getPublicUser(user)))
     } catch (err) {
       return next(err)
     }
@@ -131,9 +148,13 @@ class Controller {
   static async createUser(req, res, next) {
     try {
       const payload = validateRequest(createUserSchema, { body: req.body })
+      const roleId = await resolveRoleId(payload.role || 'EMPLOYEE')
+
       const user = await User.create({
         id: cuid(),
-        ...payload,
+        email: payload.email,
+        role_id: roleId,
+        status: payload.status,
         password: await hashPassword(payload.password)
       })
 
@@ -153,7 +174,9 @@ class Controller {
 
   static async updateUser(req, res, next) {
     try {
-      const user = await User.findByPk(req.params.id)
+      const user = await User.findByPk(req.params.id, {
+        include: [{ model: db.Role, as: 'role', attributes: ['id', 'name'] }]
+      })
 
       if (!user) {
         throw { code: HttpStatusCode.NotFound, message: 'User not found' }
@@ -163,11 +186,20 @@ class Controller {
       const oldData = getPublicUser(user)
       const updates = { ...payload }
 
+      if (updates.role) {
+        updates.role_id = await resolveRoleId(updates.role)
+        delete updates.role
+      }
+
       if (updates.password) {
         updates.password = await hashPassword(updates.password)
       }
 
       await user.update(updates)
+
+      const updatedUser = await User.findByPk(req.params.id, {
+        include: [{ model: db.Role, as: 'role', attributes: ['id', 'name'] }]
+      })
 
       await createAuditLog({
         userId: req.user.id,
@@ -175,7 +207,7 @@ class Controller {
         entity: 'User',
         entityId: user.id,
         oldData,
-        newData: getPublicUser(user)
+        newData: getPublicUser(updatedUser)
       })
 
       return res.status(HTTP_OK).json(api(null, HTTP_OK))
