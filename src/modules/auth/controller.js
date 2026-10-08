@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken')
-const bcrypt = require('bcrypt')
 const db = require('../../../db/models')
 const { api } = require('../../utils/api')
+const { compare } = require('../../utils/argon')
 const { HttpStatusCode } = require('axios')
 
 const User = db.User
@@ -9,35 +9,30 @@ const User = db.User
 class Controller {
   static async login(req, res) {
     try {
-      const { username, password } = req.body
+      const { email, password } = req.body
 
       const user = await User.findOne({
         where: {
-          [db.Sequelize.Op.or]: [{ email: username }, { username: username }],
-          status: true
-        },
-        include: [
-          {
-            model: db.Role,
-            as: 'role'
-          }
-        ]
+          email: email
+        }
       })
 
       if (!user) {
         throw { code: 400, message: 'User not found' }
       }
 
-      const isValid = await bcrypt.compare(password, user.password)
+      if (user.status === false) {
+        throw { code: 400, message: 'User is inactive' }
+      }
+
+      const isValid = await compare(password, user.password)
 
       if (!isValid) {
         throw { code: 400, message: 'Invalid Password' }
       }
 
       const payload = {
-        userId: user.id,
-        role: user.role?.code,
-        status: user.status
+        userId: user.id
       }
 
       const token = jwt.sign(payload, process.env.JWT_KEY, {
@@ -53,11 +48,8 @@ class Controller {
 
       const userSafe = {
         id: user.id,
-        role: user.role?.name,
-        status: user.status,
-        createdAt: user.createdAt,
-        outletId: null,
-        outletCode: null
+        email: user.email,
+        role: user.role
       }
 
       return res
@@ -87,29 +79,15 @@ class Controller {
 
       const user = await User.findByPk(userId, {
         attributes: { exclude: ['password'] },
-        include: [
-          {
-            model: db.Role,
-            as: 'role'
-          }
-        ]
       })
 
       if (!user) throw new Error('User not found')
 
       const result = {
         id: user.id,
-        username: user.username,
         email: user.email,
         status: user.status,
         role: user.role
-          ? {
-              id: user.role.id,
-              is_global_access: user.role.is_global_access,
-              name: user.role.name,
-              code: user.role.code
-            }
-          : null
       }
 
       return res

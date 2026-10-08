@@ -12,6 +12,16 @@ module.exports = {
         allowNull: false,
         unique: true
       },
+      role: {
+        type: Sequelize.ENUM('ADMIN', 'HR', 'EMPLOYEE'),
+        allowNull: false,
+        defaultValue: 'EMPLOYEE'
+      },
+      status: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: true
+      },
       password: {
         type: Sequelize.STRING,
         allowNull: false

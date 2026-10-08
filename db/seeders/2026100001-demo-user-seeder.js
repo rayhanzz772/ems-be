@@ -10,6 +10,8 @@ module.exports = {
       {
         id: cuid(),
         email: 'admin@company.com',
+        role: 'ADMIN',
+        status: true,
         password: await argon2.hash('admin123'),
         created_at: now,
         updated_at: now
@@ -17,6 +19,8 @@ module.exports = {
       {
         id: cuid(),
         email: 'hr@company.com',
+        role: 'HR',
+        status: true,
         password: await argon2.hash('hr123456'),
         created_at: now,
         updated_at: now

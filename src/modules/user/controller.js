@@ -1,8 +1,6 @@
 const { api } = require('../../../src/utils/api')
 const db = require('../../../db/models')
 const { HttpStatusCode } = require('axios')
-// const { listSchema } = require('./schema')
-const { validateRequest } = require('../../../src/utils/validation')
 
 const HTTP_OK = HttpStatusCode.Ok
 
@@ -20,7 +18,7 @@ class Controller {
       if (q) {
         conditions.push(`
         (
-          LOWER(u.username) LIKE LOWER(:search)
+          LOWER(u.email) LIKE LOWER(:search)
         )
       `)
         replacements.search = `%${q.toLowerCase()}%`
@@ -34,8 +32,9 @@ class Controller {
         `
         SELECT
           u.id,
-          u.username,
-          u.email
+          u.email,
+          u.role,
+          u.status
         FROM users u
         ${whereClause}
         ORDER BY u.id DESC
