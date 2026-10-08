@@ -26,7 +26,12 @@ const updateUserSchema = z
 		message: 'At least one field must be provided'
 	})
 
+const updateUserStatusSchema = z.object({
+	status: z.boolean()
+})
+
 module.exports = {
 	createUserSchema,
-	updateUserSchema
+	updateUserSchema,
+	updateUserStatusSchema
 }

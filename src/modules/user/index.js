@@ -12,6 +12,6 @@ router.get('/:id/detail', Controller.getUserById)
 router.post('/create', Controller.createUser)
 router.put('/:id/update', Controller.updateUser)
 router.delete('/:id/delete', Controller.deleteUser)
-router.patch('/:id/status', adminOnly, Controller.toggleUserStatus)
+router.patch('/:id/status', adminOnly, Controller.updateUserStatus)
 
 module.exports = router

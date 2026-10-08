@@ -145,7 +145,7 @@ class Controller {
         newData: getPublicUser(user)
       })
 
-      return res.status(HttpStatusCode.Created).json(api(getPublicUser(user), HttpStatusCode.Created))
+      return res.status(HttpStatusCode.Created).json(api(null, HttpStatusCode.Created))
     } catch (err) {
       return next(err)
     }
@@ -178,7 +178,7 @@ class Controller {
         newData: getPublicUser(user)
       })
 
-      return res.status(HTTP_OK).json(api(getPublicUser(user), HTTP_OK))
+      return res.status(HTTP_OK).json(api(null, HTTP_OK))
     } catch (err) {
       return next(err)
     }
@@ -203,13 +203,13 @@ class Controller {
         oldData
       })
 
-      return res.status(HTTP_OK).json(api({ id: user.id }, HTTP_OK))
+      return res.status(HTTP_OK).json(api(null, HTTP_OK))
     } catch (err) {
       return next(err)
     }
   }
 
-  static async toggleUserStatus(req, res, next) {
+  static async updateUserStatus(req, res, next) {
     try {
       const user = await User.findByPk(req.params.id)
 
@@ -217,9 +217,20 @@ class Controller {
         throw { code: HttpStatusCode.NotFound, message: 'User not found' }
       }
 
-      await user.update({ isActive: !user.isActive })
+      const oldData = getPublicUser(user)
+      const status = !user.status
+      await user.update({ status })
 
-      return res.status(HTTP_OK).json(api({ id: user.id, isActive: user.isActive }, HTTP_OK))
+      await createAuditLog({
+        userId: req.user.id,
+        action: 'UPDATE',
+        entity: 'User',
+        entityId: user.id,
+        oldData,
+        newData: getPublicUser(user)
+      })
+
+      return res.status(HTTP_OK).json(api(null, HTTP_OK))
     } catch (err) {
       return next(err)
     }

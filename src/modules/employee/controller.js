@@ -316,14 +316,15 @@ class Controller {
   static async toggleEmployeeStatus(req, res, next) {
     try {
       const employee = await Employee.findByPk(req.params.id)
+      const status = !employee.status
 
       if (!employee) {
         throw { code: HttpStatusCode.NotFound, message: 'Employee not found' }
       }
 
-      await employee.update({ isActive: !employee.isActive })
+      await employee.update({ status })
 
-      return res.status(HTTP_OK).json(api({ id: employee.id, isActive: employee.isActive }, HTTP_OK))
+      return res.status(HTTP_OK).json(api(null, HTTP_OK))
     } catch (err) {
       return next(err)
     }
