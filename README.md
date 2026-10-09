@@ -255,6 +255,20 @@ Supported roles in the system:
 
 Access is controlled using JWT and role middleware.
 
+## Next Features
+
+Planned improvements for the next development cycle:
+
+- [ ] **Granular RBAC permissions** — define permissions per resource and action, such as `employee.read`, `employee.create`, and `audit-log.export`.
+- [ ] **Role and permission management** — allow administrators to create custom roles and assign permissions without changing application code.
+- [ ] **Permission-aware API documentation** — document the required role or permission for each protected endpoint in the OpenAPI specification.
+- [ ] **Automated authentication and authorization tests** — cover login, token validation, role restrictions, permission checks, and unauthorized access responses.
+- [ ] **Refresh token and session management** — support secure token renewal and server-side session revocation.
+- [ ] **Employee data import** — add validated CSV/XLSX import with a preview step and an import result report.
+- [ ] **Notifications** — provide email or in-app notifications for account status changes, employee updates, and important audit events.
+- [ ] **Soft delete and data recovery** — preserve deleted records where required and provide a controlled recovery workflow.
+- [ ] **Production observability** — add structured logging, metrics, error tracking, and health checks for dependent services.
+
 ## Running Tests
 
 This project currently does not include a dedicated automated test framework like Jest or Vitest. For validation, use manual smoke testing through the running app.
