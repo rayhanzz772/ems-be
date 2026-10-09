@@ -1,6 +1,7 @@
 FROM node:20-alpine AS build
 
 RUN apk add --no-cache python3 make g++
+ENV PYTHON=/usr/bin/python3
 
 WORKDIR /app
 
