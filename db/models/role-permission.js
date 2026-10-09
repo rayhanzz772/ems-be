@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
       id: {
         type: DataTypes.STRING,
         primaryKey: true,
-        defaultValue: cuid(),
+        defaultValue: cuid,
         allowNull: false
       },
       role_id: {
