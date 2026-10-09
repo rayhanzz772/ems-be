@@ -21,7 +21,7 @@ class Controller {
       const limit = parsePositiveInteger(req.query.per_page, 10, 100)
       const page = parsePositiveInteger(req.query.page, 1)
       const offset = (page - 1) * limit
-      const conditions = []
+      const conditions = ['r.deleted_at IS NULL']
       const replacements = { limit, offset }
 
       if (req.query.q !== undefined) {

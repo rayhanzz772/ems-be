@@ -90,7 +90,7 @@ class Controller {
         : 'e.created_at'
       const sortOrder = sortOrderValue?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC'
 
-      const conditions = []
+      const conditions = ['e.deleted_at IS NULL']
       const replacements = { limit, offset }
 
       if (q) {
