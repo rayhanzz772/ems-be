@@ -17,7 +17,7 @@ class Controller {
             ON e.department_id = d.id
            AND e.deleted_at IS NULL
            AND e.status = true
-          WHERE d.deleted_at IS NULL AND d.status = true
+          WHERE d.status = true
           GROUP BY d.id, d.name
           ORDER BY employee_count DESC, d.name ASC
           LIMIT 5
