@@ -4,7 +4,7 @@ const db = require('../../../db/models')
 const { HttpStatusCode } = require('axios')
 const { validateRequest } = require('../../utils/validation')
 const { createAuditLog } = require('../../utils/auditLog')
-const { createRoleSchema, updateRoleSchema } = require('./schema')
+const { createRoleSchema, updateRoleSchema, updateRolePermissionsSchema } = require('./schema')
 
 const Role = db.Role
 
@@ -89,7 +89,9 @@ class Controller {
 
   static async getRoleById(req, res, next) {
     try {
-      const role = await Role.findByPk(req.params.id)
+      const role = await Role.findByPk(req.params.id, {
+        include: [{ model: db.Permission, as: 'permissions', attributes: ['id', 'key', 'resource', 'action', 'description'] }]
+      })
 
       if (!role) {
         throw { code: HttpStatusCode.NotFound, message: 'Role not found' }
@@ -97,6 +99,59 @@ class Controller {
 
       return res.status(HttpStatusCode.Ok).json(api(role, HttpStatusCode.Ok))
     } catch (err) {
+      return next(err)
+    }
+  }
+
+  static async getRolePermissions(req, res, next) {
+    try {
+      const role = await Role.findByPk(req.params.id, {
+        include: [{ model: db.Permission, as: 'permissions', attributes: ['id', 'key', 'resource', 'action', 'description'] }]
+      })
+
+      if (!role) throw { code: HttpStatusCode.NotFound, message: 'Role not found' }
+      return res.status(HttpStatusCode.Ok).json(api(role.permissions, HttpStatusCode.Ok))
+    } catch (err) {
+      return next(err)
+    }
+  }
+
+  static async updateRolePermissions(req, res, next) {
+    const transaction = await db.sequelize.transaction()
+    try {
+      const role = await Role.findByPk(req.params.id, { transaction })
+      if (!role) throw { code: HttpStatusCode.NotFound, message: 'Role not found' }
+
+      const { permission_ids: permissionIds } = validateRequest(updateRolePermissionsSchema, { body: req.body })
+      const permissions = await db.Permission.findAll({
+        where: { id: permissionIds },
+        transaction
+      })
+
+      if (permissions.length !== new Set(permissionIds).size) {
+        throw { code: HttpStatusCode.BadRequest, message: 'One or more permissions are invalid' }
+      }
+
+      await db.RolePermission.destroy({ where: { role_id: role.id }, transaction })
+      if (permissions.length) {
+        await db.RolePermission.bulkCreate(
+          permissions.map((permission) => ({ role_id: role.id, permission_id: permission.id })),
+          { transaction }
+        )
+      }
+      await transaction.commit()
+
+      await createAuditLog({
+        userId: req.user.id,
+        action: 'UPDATE',
+        entity: 'RolePermission',
+        entityId: role.id,
+        newData: { role_id: role.id, permission_ids: permissionIds }
+      })
+
+      return res.status(HttpStatusCode.Ok).json(api({ role_id: role.id, permission_ids: permissionIds }, HttpStatusCode.Ok))
+    } catch (err) {
+      await transaction.rollback()
       return next(err)
     }
   }

@@ -9,15 +9,16 @@ module.exports = {
       { type: Sequelize.QueryTypes.SELECT }
     )
 
+    const num = Math.floor(Math.random() * 100)
     const departmentId = departments?.id || cuid()
 
     await queryInterface.bulkInsert('employees', [
       {
         id: cuid(),
-        employee_code: 'EMP001',
+        employee_code: `EMP${num}`,
         first_name: 'John',
         last_name: 'Doe',
-        email: 'john.doe@company.com',
+        email: 'john2.doe@company.com',
         phone_number: '081234567890',
         department_id: departmentId,
         position: 'Software Engineer',
@@ -29,10 +30,10 @@ module.exports = {
       },
       {
         id: cuid(),
-        employee_code: 'EMP002',
+        employee_code: `EMP${num + 1}`,
         first_name: 'Jane',
         last_name: 'Smith',
-        email: 'jane.smith@company.com',
+        email: 'jane2.smith@company.com',
         phone_number: '081234567891',
         department_id: departmentId,
         position: 'HR Specialist',

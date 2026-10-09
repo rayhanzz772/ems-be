@@ -16,7 +16,12 @@ const updateRoleSchema = z
     message: 'At least one field must be provided'
   })
 
+const updateRolePermissionsSchema = z.object({
+  permission_ids: z.array(z.string().trim().min(1)).default([])
+})
+
 module.exports = {
   createRoleSchema,
-  updateRoleSchema
+  updateRoleSchema,
+  updateRolePermissionsSchema
 }

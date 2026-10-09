@@ -10,7 +10,7 @@ Employee Management System (EMS) is a Node.js + Express + Sequelize backend for 
 ## Features
 
 - Authentication and JWT-based session handling
-- Role-based access control with `ADMIN`, `HR`, and `EMPLOYEE`
+- Role-based access control (RBAC) with configurable permissions for `ADMIN`, `HR`, and `EMPLOYEE`
 - User management
 - Department management
 - Employee management
@@ -183,7 +183,9 @@ This is the contract used for frontend integration and documentation.
 - `GET /api/v1/roles`
 - `POST /api/v1/roles/create`
 - `GET /api/v1/roles/:id/detail`
+- `GET /api/v1/roles/:id/permissions`
 - `PUT /api/v1/roles/:id/update`
+- `PUT /api/v1/roles/:id/permissions`
 - `DELETE /api/v1/roles/:id/delete`
 
 ### Users
@@ -253,14 +255,138 @@ Supported roles in the system:
 - `HR`
 - `EMPLOYEE`
 
-Access is controlled using JWT and role middleware.
+Access is controlled using JWT and granular permissions assigned to each role.
+
+### RBAC Feature Overview
+
+The RBAC feature controls access to API resources through permissions assigned to roles. Each permission represents an action on a resource, using a key such as `employee.read`, `employee.create`, or `audit_log.export`. A role can hold multiple permissions, and each user receives the permissions associated with their role.
+
+After authentication, the backend checks the user's active status, role status, and required permission before allowing access to a protected endpoint. Requests without a valid session receive `401 Unauthorized`; authenticated users without the required permission receive `403 Forbidden`. This authorization is enforced by the backend and cannot be bypassed by changing the frontend UI.
+
+The login and `GET /api/v1/auth/get-me` responses include the user's role and permission keys. The frontend can use these keys to show or hide menus, pages, and actions, while still treating the API response as the final authorization decision. For example, the `employee.create` permission can control visibility of the create-employee action.
+
+Administrators can manage roles and their assigned permissions through the role endpoints. `GET /api/v1/roles/:id/permissions` returns permissions assigned to a role, and `PUT /api/v1/roles/:id/permissions` replaces that role's permission list using permission database IDs.
+
+## Frontend Integration Guide
+
+### 1) Authentication
+
+Call the login endpoint and send credentials with every subsequent request:
+
+```js
+const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, password })
+})
+```
+
+The backend sets an HttpOnly `token` cookie. The FE should use `credentials: 'include'` and should not store the token in `localStorage`.
+
+After refresh or application startup, call:
+
+```text
+GET /api/v1/auth/get-me
+```
+
+Use the response to restore the authenticated user and role. Logout must call:
+
+```text
+POST /api/v1/auth/logout
+```
+
+### 2) API client
+
+Every protected request must include credentials. Centralize this behavior in one API client so that `401` and `403` are handled consistently.
+
+```js
+await fetch(`${API_URL}/api/v1/employees`, {
+  credentials: 'include'
+})
+```
+
+Expected handling:
+
+- `401` — clear the local session and redirect to login.
+- `403` — keep the session, but show an access-denied state and hide or disable the action.
+- `422` or `400` — show field or request validation errors.
+
+### 3) Permission-based UI
+
+Do not use only role names to decide whether a button or menu item is visible. Use permission keys:
+
+```js
+const can = (permission) => currentUserPermissions.includes(permission)
+
+if (can('employee.create')) {
+  // Render the create employee action.
+}
+```
+
+The main permission keys are:
+
+```text
+dashboard.read
+user.read              user.create       user.update       user.delete
+role.read              role.create       role.update       role.delete
+role.permission.assign
+department.read        department.create department.update department.delete
+employee.read          employee.create   employee.update   employee.delete
+employee.export
+audit_log.read         audit_log.export
+```
+
+The FE must still handle `403` from the API. UI guards improve the experience but are not a security boundary.
+
+### 4) Current permission limitation
+
+The current `GET /api/v1/auth/get-me` response contains the user's role but does not yet contain the resolved permission list. Until a current-user permission endpoint is available, the FE should:
+
+1. Use the role as a temporary UI fallback.
+2. Treat the API response as the final authorization decision.
+3. Request a BE endpoint such as `GET /api/v1/auth/permissions` for permission-based UI guards.
+
+For the admin role-management screen, the available endpoints are:
+
+```text
+GET /api/v1/roles/:id/permissions
+PUT /api/v1/roles/:id/permissions
+```
+
+The update request replaces the complete permission list:
+
+```json
+{
+  "permission_ids": ["permission-id-1", "permission-id-2"]
+}
+```
+
+### 5) Recommended FE screens
+
+- Login and session-expired state
+- Dashboard based on `dashboard.read`
+- Employee list, detail, create, edit, delete, and export states
+- User and role management restricted by their permission keys
+- Role permission editor with grouped permissions by resource
+- Empty, loading, validation-error, unauthorized, and forbidden states
+
+### 6) FE delivery checklist
+
+- [ ] Configure the API base URL per environment.
+- [ ] Enable `credentials: 'include'` on the API client.
+- [ ] Restore the session with `GET /api/v1/auth/get-me` on app startup.
+- [ ] Add centralized `401` and `403` handling.
+- [ ] Add permission helpers for menu, route, and action guards.
+- [ ] Do not persist the JWT in `localStorage`.
+- [ ] Test the UI with `ADMIN`, `HR`, and `EMPLOYEE` accounts.
 
 ## Next Features
 
 Planned improvements for the next development cycle:
 
-- [ ] **Granular RBAC permissions** — define permissions per resource and action, such as `employee.read`, `employee.create`, and `audit-log.export`.
-- [ ] **Role and permission management** — allow administrators to create custom roles and assign permissions without changing application code.
+- [x] **Granular RBAC permissions** — define permissions per resource and action, such as `employee.read`, `employee.create`, and `audit_log.export`.
+- [x] **Role and permission management** — allow administrators to create custom roles and assign permissions without changing application code.
 - [ ] **Permission-aware API documentation** — document the required role or permission for each protected endpoint in the OpenAPI specification.
 - [ ] **Automated authentication and authorization tests** — cover login, token validation, role restrictions, permission checks, and unauthorized access responses.
 - [ ] **Refresh token and session management** — support secure token renewal and server-side session revocation.
@@ -271,7 +397,7 @@ Planned improvements for the next development cycle:
 
 ## Running Tests
 
-This project currently does not include a dedicated automated test framework like Jest or Vitest. For validation, use manual smoke testing through the running app.
+The project uses Node's built-in test runner for focused automated tests. Manual smoke testing is still recommended for API integration.
 
 Recommended local validation flow:
 
@@ -279,6 +405,7 @@ Recommended local validation flow:
 npm install
 npx sequelize-cli db:migrate
 npm run seed
+npm test
 npm run dev
 ```
 

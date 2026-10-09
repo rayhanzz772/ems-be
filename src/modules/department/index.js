@@ -1,16 +1,16 @@
 const Controller = require('./controller')
 const router = require('express').Router()
 const authMiddleware = require('../../middleware/authMiddleware')
-const adminOnly = require('../../middleware/roleMiddleware')
+const requirePermission = require('../../middleware/permissionMiddleware')
 const limiter = require('../../utils/limiter')
 
 router.use(limiter)
 router.use(authMiddleware)
-router.get('/', Controller.getDepartments)
-router.get('/:id/detail', Controller.getDepartmentById)
-router.post('/create', adminOnly, Controller.createDepartment)
-router.put('/:id/update', adminOnly, Controller.updateDepartment)
-router.delete('/:id/delete', adminOnly, Controller.deleteDepartment)
-router.patch('/:id/status', adminOnly, Controller.toggleDepartmentStatus)
+router.get('/', requirePermission('department.read'), Controller.getDepartments)
+router.get('/:id/detail', requirePermission('department.read'), Controller.getDepartmentById)
+router.post('/create', requirePermission('department.create'), Controller.createDepartment)
+router.put('/:id/update', requirePermission('department.update'), Controller.updateDepartment)
+router.delete('/:id/delete', requirePermission('department.delete'), Controller.deleteDepartment)
+router.patch('/:id/status', requirePermission('department.update'), Controller.toggleDepartmentStatus)
 
 module.exports = router

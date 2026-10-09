@@ -7,6 +7,18 @@ const { HttpStatusCode } = require('axios')
 const User = db.User
 
 const getUserRoleName = (user) => user?.role?.name || 'EMPLOYEE'
+const getUserPermissionKeys = (user) => user?.role?.permissions?.map((permission) => permission.key) || []
+
+const roleWithPermissions = {
+  model: db.Role,
+  as: 'role',
+  attributes: ['id', 'name'],
+  include: [{
+    model: db.Permission,
+    as: 'permissions',
+    attributes: ['key']
+  }]
+}
 
 class Controller {
   static async login(req, res, next) {
@@ -22,7 +34,7 @@ class Controller {
         where: {
           email: email
         },
-        include: [{ model: db.Role, as: 'role', attributes: ['id', 'name'] }]
+        include: [roleWithPermissions]
       })
 
       if (!user) {
@@ -61,7 +73,8 @@ class Controller {
         id: user.id,
         token: token,
         email: user.email,
-        role: roleName
+        role: roleName,
+        permissions: getUserPermissionKeys(user)
       }
 
       return res
@@ -89,7 +102,7 @@ class Controller {
 
       const user = await User.findByPk(userId, {
         attributes: { exclude: ['password'] },
-        include: [{ model: db.Role, as: 'role', attributes: ['id', 'name'] }]
+        include: [roleWithPermissions]
       })
 
       if (!user) throw new Error('User not found')
@@ -98,7 +111,8 @@ class Controller {
         id: user.id,
         email: user.email,
         status: user.status,
-        role: getUserRoleName(user)
+        role: getUserRoleName(user),
+        permissions: getUserPermissionKeys(user)
       }
 
       return res

@@ -16,7 +16,8 @@
     "seed:make": "npx sequelize-cli seed:generate --name",
     "make:full": "npm run model:make -- --name",
     "make:seed": "npm run seed:make -- --name",
-    "make:all": "node src/scripts/make-all.js"
+      "make:all": "node src/scripts/make-all.js",
+      "test": "node --test"
   },
   "keywords": [],
   "author": "",
