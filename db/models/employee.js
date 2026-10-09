@@ -22,7 +22,6 @@ module.exports = (sequelize, DataTypes) => {
       employee_code: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true,
         field: 'employee_code'
       },
       first_name: {
@@ -37,8 +36,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       email: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
+        allowNull: false
       },
       phone_number: {
         type: DataTypes.STRING,
