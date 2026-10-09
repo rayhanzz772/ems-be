@@ -427,10 +427,20 @@ If you want to add automated tests later, this project is structured to support 
 
 ## Production / Deployment Notes
 
+### Deployment Architecture
+
+The production application is deployed across three services:
+
+- **Supabase** hosts the PostgreSQL database used by the backend.
+- **Railway** hosts this Node.js/Express backend and connects to Supabase using database environment variables.
+- **Vercel** hosts the frontend and communicates with the backend through its production API URL.
+
+The database password and JWT secret are configured as environment variables on Railway, not committed to this repository or exposed to the frontend. The backend's `ALLOWED_ORIGINS` must include the production Vercel frontend origin so credentialed API requests can pass CORS checks.
+
 - Ensure the database is migrated and seeded before deployment.
 - Set `JWT_KEY` securely in production.
 - Configure environment-specific `PORT`, `DB_*`, and `NODE_ENV` values.
-- The main API should be served behind a proper reverse proxy (Nginx / Apache / hosting platform) when deployed.
+- Configure Supabase SSL settings and use the connection details provided by the Supabase project.
 
 ## Useful Commands
 
