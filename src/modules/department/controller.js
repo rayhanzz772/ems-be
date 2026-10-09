@@ -98,7 +98,23 @@ class Controller {
 
 	static async getDepartmentById(req, res, next) {
 		try {
-			const department = await Department.findByPk(req.params.id)
+			const department = await db.sequelize.query(
+				`
+				SELECT
+					d.id, 
+					d.name, 
+					d.description,
+					d.status,
+					d.created_at, 
+					d.updated_at,
+					COUNT(e.id) AS employee_count
+				FROM departments d
+				LEFT JOIN employees e ON e.department_id = d.id AND e.deleted_at IS NULL AND e.status = true
+				WHERE d.id = :id
+				GROUP BY d.id
+				`,
+				{ type: db.Sequelize.QueryTypes.SELECT, replacements: { id: req.params.id } }
+			)
 
 			if (!department) {
 				throw { code: HttpStatusCode.NotFound, message: 'Department not found' }
