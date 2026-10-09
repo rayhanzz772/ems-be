@@ -12,7 +12,10 @@ module.exports = {
     seederStorageTableName: 'SequelizeData',
     timezone: '+07:00',
     dialectOptions: {
-      bigNumberStrings: true
+      bigNumberStrings: true,
+      ...(process.env.DB_SSL === 'true'
+        ? { ssl: { require: true, rejectUnauthorized: false } }
+        : {})
     }
   },
   development: {
@@ -26,7 +29,10 @@ module.exports = {
     seederStorageTableName: 'SequelizeData',
     timezone: '+07:00',
     dialectOptions: {
-      bigNumberStrings: true
+      bigNumberStrings: true,
+      ...(process.env.DB_SSL === 'true'
+        ? { ssl: { require: true, rejectUnauthorized: false } }
+        : {})
     }
   },
   staging: {
@@ -40,7 +46,10 @@ module.exports = {
     seederStorageTableName: 'SequelizeData',
     timezone: '+07:00',
     dialectOptions: {
-      bigNumberStrings: true
+      bigNumberStrings: true,
+      ...(process.env.DB_SSL === 'true'
+        ? { ssl: { require: true, rejectUnauthorized: false } }
+        : {})
     }
   },
   production: {
@@ -60,7 +69,10 @@ module.exports = {
       idle: 10000
     },
     dialectOptions: {
-      bigNumberStrings: true
+      bigNumberStrings: true,
+      ...(process.env.DB_SSL === 'true'
+        ? { ssl: { require: true, rejectUnauthorized: false } }
+        : {})
     }
   }
 }
