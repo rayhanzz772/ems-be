@@ -262,17 +262,22 @@ class Controller {
         assertEmployee(payload.employee_id),
         assertLeaveType(payload.leave_type_id)
       ])
+      const status = 'PENDING'
+      
       if (payload.approver_id) await assertEmployee(payload.approver_id)
       await assertNoOverlappingRequest({
         employeeId: employee.id,
         startDate: payload.start_date,
         endDate: payload.end_date
       })
+      if (req.user.role === 'ADMIN') {
+        status = 'APPROVED'
+      }
       const leaveRequest = await LeaveRequest.create({
         id: cuid(),
         ...payload,
         approver_id: payload.approver_id || employee.manager_id || null,
-        status: 'PENDING'
+        status: status
       })
       await createAuditLog({
         userId: req.user.id,
