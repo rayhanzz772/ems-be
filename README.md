@@ -66,7 +66,7 @@ The ERD (Entity Relationship Diagram) shows the structure of the database and th
 The ERD image is already available here:
 
 <p align="center">
-  <img src="./public/assets/erd.png" alt="ERD" width="900">
+  <img src="./public/assets/erd-new.png" alt="ERD" width="900">
 </p>
 
 You can also open it visually in the project or share it with the team for database reference.
