@@ -1,6 +1,6 @@
 # Employee Management System Backend
 
-Employee Management System (EMS) is a Node.js + Express + Sequelize backend for managing employees, departments, users, roles, and audit logs. It exposes REST API endpoints with JWT authentication, role-based authorization, and CSV export support.
+Employee Management System (EMS) is a Node.js + Express + Sequelize backend for managing employees, organizational master data, leave requests, and audit logs. It exposes REST API endpoints with JWT authentication, role-based authorization, and CSV export support.
 
 ## Demo Live
 
@@ -12,8 +12,9 @@ Employee Management System (EMS) is a Node.js + Express + Sequelize backend for 
 - Authentication and JWT-based session handling
 - Role-based access control (RBAC) with configurable permissions for `ADMIN`, `HR`, and `EMPLOYEE`
 - User management
+- Branch and position management
 - Department management
-- Employee management
+- Employee management with department, position, branch, and manager references
 - Leave types, requests, approvals, balances, and calendar API
 - Audit log tracking for create/update/delete actions
 - CSV export for employees and audit logs
@@ -43,15 +44,20 @@ Employee Management System (EMS) is a Node.js + Express + Sequelize backend for 
 │   ├── migrations/
 │   ├── models/
 │   └── seeders/
-├── public/
-│   └── assets/
-│       └── erd.png
 ├── src/
 │   ├── docs/
 │   ├── middleware/
 │   ├── modules/
+│   │   ├── branch/
+│   │   ├── employee/
+│   │   ├── leaves/
+│   │   └── position/
 │   ├── routes.js
 │   └── utils/
+├── docs/
+│   ├── erd.dbml
+│   ├── leaves-api.md
+│   └── organization-employee-api.md
 ├── index.js
 ├── package.json
 ├── .env.example
@@ -207,6 +213,24 @@ This is the contract used for frontend integration and documentation.
 - `GET /api/v1/departments/:id/detail`
 - `PUT /api/v1/departments/:id/update`
 - `DELETE /api/v1/departments/:id/delete`
+- `PATCH /api/v1/departments/:id/status`
+
+### Branches
+
+- `GET /api/v1/branches`
+- `POST /api/v1/branches/create`
+- `GET /api/v1/branches/:id/detail`
+- `PUT /api/v1/branches/:id/update`
+- `DELETE /api/v1/branches/:id/delete`
+- `PATCH /api/v1/branches/:id/status`
+
+### Positions
+
+- `GET /api/v1/positions`
+- `POST /api/v1/positions/create`
+- `GET /api/v1/positions/:id/detail`
+- `PUT /api/v1/positions/:id/update`
+- `DELETE /api/v1/positions/:id/delete`
 
 ### Employees
 
@@ -217,6 +241,31 @@ This is the contract used for frontend integration and documentation.
 - `DELETE /api/v1/employees/:id/delete`
 - `PATCH /api/v1/employees/:id/status`
 - `GET /api/v1/employees/export`
+
+Employee create/update uses `position_id` and optional `branch_id`; do not send the removed `work_location` field or the former free-text `position` field. See [`docs/organization-employee-api.md`](./docs/organization-employee-api.md) for the latest Employee fields, filters, payload examples, and Branch/Position API details.
+
+### Leaves
+
+- `GET /api/v1/leaves/types`
+- `POST /api/v1/leaves/types/create`
+- `GET /api/v1/leaves/types/:id/detail`
+- `PUT /api/v1/leaves/types/:id/update`
+- `DELETE /api/v1/leaves/types/:id/delete`
+- `GET /api/v1/leaves/requests`
+- `POST /api/v1/leaves/requests/create`
+- `GET /api/v1/leaves/requests/:id/detail`
+- `PUT /api/v1/leaves/requests/:id/update`
+- `DELETE /api/v1/leaves/requests/:id/delete`
+- `PATCH /api/v1/leaves/requests/:id/decision`
+- `PATCH /api/v1/leaves/requests/:id/cancel`
+- `GET /api/v1/leaves/calendar`
+- `GET /api/v1/leaves/balances`
+- `POST /api/v1/leaves/balances/create`
+- `GET /api/v1/leaves/balances/:id/detail`
+- `PUT /api/v1/leaves/balances/:id/update`
+- `DELETE /api/v1/leaves/balances/:id/delete`
+
+See [`docs/leaves-api.md`](./docs/leaves-api.md) for request/response shapes, permissions, filters, status transitions, balance rules, and calendar integration.
 
 ### Audit Logs
 
@@ -247,6 +296,8 @@ The list endpoints support pagination, sorting, and filtering.
 GET /api/v1/employees?page=1&per_page=10&q=ali
 GET /api/v1/users?role=ADMIN&status=true
 GET /api/v1/departments?sort_by=name&sort_order=ASC
+GET /api/v1/employees?branch_id=<branch-id>&employment_status=ACTIVE
+GET /api/v1/branches?status=true&q=Jakarta
 GET /api/v1/audit-logs?action=CREATE&date_from=2026-10-01
 ```
 
@@ -313,7 +364,7 @@ Expected handling:
 
 - `401` — clear the local session and redirect to login.
 - `403` — keep the session, but show an access-denied state and hide or disable the action.
-- `422` or `400` — show field or request validation errors.
+- `400` — show field or request validation errors.
 
 ### 3) Permission-based UI
 
@@ -335,8 +386,14 @@ user.read              user.create       user.update       user.delete
 role.read              role.create       role.update       role.delete
 role.permission.assign
 department.read        department.create department.update department.delete
+branch.read            branch.create     branch.update     branch.delete
+position.read          position.create   position.update   position.delete
 employee.read          employee.create   employee.update   employee.delete
 employee.export
+leave_type.read        leave_type.create leave_type.update leave_type.delete
+leave_request.read     leave_request.create leave_request.update leave_request.delete
+leave_request.decide
+leave_balance.read     leave_balance.create leave_balance.update leave_balance.delete
 audit_log.read         audit_log.export
 ```
 
