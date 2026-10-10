@@ -262,7 +262,7 @@ class Controller {
         assertEmployee(payload.employee_id),
         assertLeaveType(payload.leave_type_id)
       ])
-      const status = 'PENDING'
+      let status = 'PENDING'
       
       if (payload.approver_id) await assertEmployee(payload.approver_id)
       await assertNoOverlappingRequest({
