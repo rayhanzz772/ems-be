@@ -360,7 +360,6 @@ class Controller {
         { isolationLevel: Transaction.ISOLATION_LEVELS.READ_COMMITTED },
         async (transaction) => {
           const leaveRequest = await LeaveRequest.findByPk(req.params.id, {
-            include: [{ model: LeaveType, as: 'leave_type' }],
             transaction,
             lock: transaction.LOCK.UPDATE
           })
@@ -369,7 +368,12 @@ class Controller {
             throw { code: HttpStatusCode.Conflict, message: 'Only pending leave requests can be decided' }
           }
 
-          if (payload.status === 'APPROVED' && leaveRequest.leave_type.requires_balance) {
+          const leaveType = await LeaveType.findByPk(leaveRequest.leave_type_id, { transaction })
+          if (!leaveType) {
+            throw { code: HttpStatusCode.Conflict, message: 'Leave type for this request no longer exists' }
+          }
+
+          if (payload.status === 'APPROVED' && leaveType.requires_balance) {
             if (leaveRequest.start_date.slice(0, 4) !== leaveRequest.end_date.slice(0, 4)) {
               throw { code: HttpStatusCode.BadRequest, message: 'Balance-based leave must be within one calendar year' }
             }
@@ -427,7 +431,6 @@ class Controller {
     try {
       const result = await db.sequelize.transaction(async (transaction) => {
         const leaveRequest = await LeaveRequest.findByPk(req.params.id, {
-          include: [{ model: LeaveType, as: 'leave_type' }],
           transaction,
           lock: transaction.LOCK.UPDATE
         })
@@ -437,7 +440,11 @@ class Controller {
         }
 
         const oldData = leaveRequest.toJSON()
-        if (leaveRequest.status === 'APPROVED' && leaveRequest.leave_type.requires_balance) {
+        const leaveType = await LeaveType.findByPk(leaveRequest.leave_type_id, { transaction })
+        if (!leaveType) {
+          throw { code: HttpStatusCode.Conflict, message: 'Leave type for this request no longer exists' }
+        }
+        if (leaveRequest.status === 'APPROVED' && leaveType.requires_balance) {
           const balance = await LeaveBalance.findOne({
             where: {
               employee_id: leaveRequest.employee_id,
