@@ -8,6 +8,34 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'department_id',
         as: 'department'
       })
+      Employee.belongsTo(models.Position, {
+        foreignKey: 'position_id',
+        as: 'position'
+      })
+      Employee.belongsTo(models.Employee, {
+        foreignKey: 'manager_id',
+        as: 'manager'
+      })
+      Employee.hasMany(models.Employee, {
+        foreignKey: 'manager_id',
+        as: 'direct_reports'
+      })
+      Employee.belongsTo(models.Branch, {
+        foreignKey: 'branch_id',
+        as: 'branch'
+      })
+      Employee.hasMany(models.LeaveRequest, {
+        foreignKey: 'employee_id',
+        as: 'leave_requests'
+      })
+      Employee.hasMany(models.LeaveRequest, {
+        foreignKey: 'approver_id',
+        as: 'leave_approvals'
+      })
+      Employee.hasMany(models.LeaveBalance, {
+        foreignKey: 'employee_id',
+        as: 'leave_balances'
+      })
     }
   }
 
@@ -52,9 +80,54 @@ module.exports = (sequelize, DataTypes) => {
           key: 'id'
         }
       },
-      position: {
+      branch_id: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true,
+        field: 'branch_id',
+        references: {
+          model: 'branches',
+          key: 'id'
+        }
+      },
+      position_id: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        field: 'position_id',
+        references: {
+          model: 'positions',
+          key: 'id'
+        }
+      },
+      manager_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'manager_id',
+        references: {
+          model: 'employees',
+          key: 'id'
+        }
+      },
+      employment_type: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'PERMANENT',
+        field: 'employment_type'
+      },
+      employment_status: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'ACTIVE',
+        field: 'employment_status'
+      },
+      contract_start_date: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: 'contract_start_date'
+      },
+      contract_end_date: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: 'contract_end_date'
       },
       status: {
         type: DataTypes.BOOLEAN,

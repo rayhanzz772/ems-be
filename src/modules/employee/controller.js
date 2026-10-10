@@ -20,7 +20,17 @@ const findEmployeesForExport = () =>
       e.phone_number,
       e.department_id,
       d.name AS department_name,
-      e.position,
+      e.position_id,
+      p.name AS position,
+      e.branch_id,
+      b.name AS branch_name,
+      e.manager_id,
+      m.first_name AS manager_first_name,
+      m.last_name AS manager_last_name,
+      e.employment_type,
+      e.employment_status,
+      e.contract_start_date,
+      e.contract_end_date,
       e.status,
       e.hire_date,
       e.address,
@@ -28,6 +38,9 @@ const findEmployeesForExport = () =>
       e.updated_at
     FROM employees e
     LEFT JOIN departments d ON d.id = e.department_id
+    LEFT JOIN positions p ON p.id = e.position_id
+    LEFT JOIN branches b ON b.id = e.branch_id
+    LEFT JOIN employees m ON m.id = e.manager_id
     WHERE e.deleted_at IS NULL
     ORDER BY e.created_at DESC
     `,
@@ -35,17 +48,60 @@ const findEmployeesForExport = () =>
   )
 
 const normalizeEmployeeBody = (body = {}) => ({
-  employee_code: employeeCodeGenerator(),
+  employee_code: body.employee_code ?? body.employeeCode ?? employeeCodeGenerator(),
   first_name: body.first_name ?? body.firstName,
   last_name: body.last_name ?? body.lastName,
   email: body.email,
   phone_number: body.phone_number ?? body.phoneNumber,
   department_id: body.department_id ?? body.departmentId,
-  position: body.position,
+  position_id: body.position_id ?? body.positionId,
+  manager_id: body.manager_id !== undefined ? body.manager_id : (body.managerId ?? null),
+  branch_id: body.branch_id !== undefined ? body.branch_id : (body.branchId ?? null),
+  employment_type: body.employment_type ?? body.employmentType ?? 'PERMANENT',
+  employment_status: body.employment_status ?? body.employmentStatus ?? 'ACTIVE',
+  contract_start_date: body.contract_start_date ?? body.contractStartDate ?? null,
+  contract_end_date: body.contract_end_date ?? body.contractEndDate ?? null,
   status: body.status === undefined ? true : body.status,
   hire_date: body.hire_date ?? body.hireDate,
   address: body.address
 })
+
+const validateBranch = async (branchId) => {
+  if (!branchId) return
+
+  const branch = await db.Branch.findByPk(branchId)
+  if (!branch) {
+    throw { code: HttpStatusCode.BadRequest, message: 'Branch not found' }
+  }
+  if (!branch.status) {
+    throw { code: HttpStatusCode.BadRequest, message: 'Branch is inactive' }
+  }
+}
+
+const validateManager = async (managerId, employeeId = null) => {
+  const visited = new Set()
+  let currentManagerId = managerId
+
+  while (currentManagerId) {
+    if (currentManagerId === employeeId || visited.has(currentManagerId)) {
+      throw {
+        code: HttpStatusCode.BadRequest,
+        message: 'Manager assignment would create a reporting cycle'
+      }
+    }
+
+    visited.add(currentManagerId)
+    const manager = await Employee.findByPk(currentManagerId, {
+      attributes: ['id', 'manager_id']
+    })
+
+    if (!manager) {
+      throw { code: HttpStatusCode.BadRequest, message: 'Manager not found' }
+    }
+
+    currentManagerId = manager.manager_id
+  }
+}
 
 
 class Controller {
@@ -79,7 +135,10 @@ class Controller {
         last_name: 'e.last_name',
         email: 'e.email',
         department_name: 'd.name',
-        position: 'e.position',
+        position: 'p.name',
+        branch_name: 'b.name',
+        employment_type: 'e.employment_type',
+        employment_status: 'e.employment_status',
         status: 'e.status',
         hire_date: 'e.hire_date',
         created_at: 'e.created_at',
@@ -118,9 +177,39 @@ class Controller {
         replacements.departmentId = departmentId
       }
 
+      for (const [key, column, allowedValues] of [
+        ['employment_type', 'e.employment_type', ['PERMANENT', 'CONTRACT', 'INTERN']],
+        ['employment_status', 'e.employment_status', ['ACTIVE', 'ON_LEAVE', 'RESIGNED', 'TERMINATED']]
+      ]) {
+        const value = getQueryString(key)
+        if (value) {
+          const normalizedValue = value.toUpperCase()
+          if (!allowedValues.includes(normalizedValue)) {
+            throw {
+              code: HttpStatusCode.BadRequest,
+              message: `Invalid ${key} query parameter`
+            }
+          }
+          conditions.push(`${column} = :${key}`)
+          replacements[key] = normalizedValue
+        }
+      }
+
+      const managerId = getQueryString('manager_id')
+      if (managerId) {
+        conditions.push('e.manager_id = :managerId')
+        replacements.managerId = managerId
+      }
+
+      const branchId = getQueryString('branch_id')
+      if (branchId) {
+        conditions.push('e.branch_id = :branchId')
+        replacements.branchId = branchId
+      }
+
       const position = getQueryString('position')
       if (position) {
-        conditions.push('LOWER(e.position) LIKE LOWER(:position)')
+        conditions.push('LOWER(p.name) LIKE LOWER(:position)')
         replacements.position = `%${position}%`
       }
 
@@ -157,7 +246,17 @@ class Controller {
           e.phone_number,
           e.department_id,
           d.name AS department_name,
-          e.position,
+          e.position_id,
+          p.name AS position,
+          e.branch_id,
+          b.name AS branch_name,
+          e.manager_id,
+          m.first_name AS manager_first_name,
+          m.last_name AS manager_last_name,
+          e.employment_type,
+          e.employment_status,
+          e.contract_start_date,
+          e.contract_end_date,
           e.status,
           e.hire_date,
           e.address,
@@ -165,6 +264,9 @@ class Controller {
           e.updated_at
         FROM employees e
         LEFT JOIN departments d ON d.id = e.department_id
+        LEFT JOIN positions p ON p.id = e.position_id
+        LEFT JOIN branches b ON b.id = e.branch_id
+        LEFT JOIN employees m ON m.id = e.manager_id
         ${whereClause}
         ORDER BY ${sortColumn} ${sortOrder}
         LIMIT :limit OFFSET :offset
@@ -179,6 +281,9 @@ class Controller {
         `
         SELECT COUNT(*) AS total
         FROM employees e
+        LEFT JOIN positions p ON p.id = e.position_id
+        LEFT JOIN branches b ON b.id = e.branch_id
+        LEFT JOIN employees m ON m.id = e.manager_id
         ${whereClause}
         `,
         {
@@ -201,7 +306,16 @@ class Controller {
   static async getEmployeeById(req, res, next) {
     try {
       const employee = await Employee.findByPk(req.params.id, {
-        include: [{ model: db.Department, as: 'department' }]
+        include: [
+          { model: db.Department, as: 'department' },
+          { model: db.Position, as: 'position' },
+          { model: db.Branch, as: 'branch' },
+          {
+            model: db.Employee,
+            as: 'manager',
+            attributes: ['id', 'employee_code', 'first_name', 'last_name']
+          }
+        ]
       })
 
       if (!employee) {
@@ -237,6 +351,8 @@ class Controller {
       const payload = validateRequest(createEmployeeSchema, {
         body: normalizeEmployeeBody(req.body)
       })
+      await validateBranch(payload.branch_id)
+      await validateManager(payload.manager_id)
 
       const employee = await Employee.create(payload)
 
@@ -266,6 +382,18 @@ class Controller {
       const payload = validateRequest(updateEmployeeSchema, {
         body: normalizeEmployeeBody({ ...employee.toJSON(), ...req.body })
       })
+
+      const branch = await db.Branch.findByPk(payload.branch_id)
+
+      if (!branch) {
+        throw { code: HttpStatusCode.BadRequest, message: 'Branch not found' }
+      }
+
+      if (!branch.status) {
+        throw { code: HttpStatusCode.BadRequest, message: 'Branch is inactive' }
+      }
+
+      await validateManager(payload.manager_id, employee.id)
 
       const previousData = employee.toJSON()
 
@@ -316,12 +444,12 @@ class Controller {
   static async toggleEmployeeStatus(req, res, next) {
     try {
       const employee = await Employee.findByPk(req.params.id)
-      const status = !employee.status
 
       if (!employee) {
         throw { code: HttpStatusCode.NotFound, message: 'Employee not found' }
       }
 
+      const status = !employee.status
       await employee.update({ status })
 
       return res.status(HTTP_OK).json(api(null, HTTP_OK))

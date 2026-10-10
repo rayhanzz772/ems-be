@@ -9,8 +9,24 @@ module.exports = {
       { type: Sequelize.QueryTypes.SELECT }
     )
 
+    const [positions] = await queryInterface.sequelize.query(
+      'SELECT id FROM positions ORDER BY created_at ASC LIMIT 1',
+      { type: Sequelize.QueryTypes.SELECT }
+    )
+
+    const [branches] = await queryInterface.sequelize.query(
+      'SELECT id FROM branches ORDER BY created_at ASC LIMIT 1',
+      { type: Sequelize.QueryTypes.SELECT }
+    )
+
+    if (!departments || !positions) {
+      throw new Error('Seed at least one department and position before seeding employees')
+    }
+
     const num = Math.floor(Math.random() * 100)
-    const departmentId = departments?.id || cuid()
+    const departmentId = departments.id
+    const positionId = positions.id
+    const branchId = branches?.id || null
 
     await queryInterface.bulkInsert('employees', [
       {
@@ -21,7 +37,13 @@ module.exports = {
         email: 'john2.doe@company.com',
         phone_number: '081234567890',
         department_id: departmentId,
-        position: 'Software Engineer',
+        position_id: positionId,
+        manager_id: null,
+        branch_id: branchId,
+        employment_type: 'CONTRACT',
+        employment_status: 'ACTIVE',
+        contract_start_date: '2024-01-15',
+        contract_end_date: '2027-01-14',
         status: true,
         hire_date: new Date('2024-01-15'),
         address: 'Jakarta Selatan',
@@ -36,7 +58,13 @@ module.exports = {
         email: 'jane2.smith@company.com',
         phone_number: '081234567891',
         department_id: departmentId,
-        position: 'HR Specialist',
+        position_id: positionId,
+        manager_id: null,
+        branch_id: branchId,
+        employment_type: 'PERMANENT',
+        employment_status: 'ACTIVE',
+        contract_start_date: null,
+        contract_end_date: null,
         status: true,
         hire_date: new Date('2023-05-10'),
         address: 'Bandung',

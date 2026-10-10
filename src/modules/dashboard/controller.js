@@ -5,7 +5,7 @@ const { HttpStatusCode } = require('axios')
 class Controller {
   static async getDashboard(req, res, next) {
     try {
-      const [departmentSummary, employeeStatus, recentActivity] = await Promise.all([
+      const [departmentSummary, employeeStatus, employmentStatusSummary, recentActivity] = await Promise.all([
         db.sequelize.query(
           `
           SELECT
@@ -32,6 +32,15 @@ class Controller {
             COUNT(*) AS total
           FROM employees
             WHERE deleted_at IS NULL
+          `,
+          { type: db.Sequelize.QueryTypes.SELECT }
+        ),
+        db.sequelize.query(
+          `
+          SELECT employment_status, COUNT(*) AS total
+          FROM employees
+          WHERE deleted_at IS NULL
+          GROUP BY employment_status
           `,
           { type: db.Sequelize.QueryTypes.SELECT }
         ),
@@ -68,6 +77,12 @@ class Controller {
           inactive: Number(employeeStatusSummary.inactive || 0),
           total: Number(employeeStatusSummary.total || 0)
         },
+        employment_status_summary: Object.fromEntries(
+          employmentStatusSummary.map((item) => [
+            item.employment_status,
+            Number(item.total || 0)
+          ])
+        ),
         employee_by_department: departmentSummary.map((item) => ({
           department_id: item.id,
           department_name: item.department_name,

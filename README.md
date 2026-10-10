@@ -14,10 +14,13 @@ Employee Management System (EMS) is a Node.js + Express + Sequelize backend for 
 - User management
 - Department management
 - Employee management
+- Leave types, requests, approvals, balances, and calendar API
 - Audit log tracking for create/update/delete actions
 - CSV export for employees and audit logs
 - Dashboard summary for employee and activity insights
 - OpenAPI contract available at `/api-docs/openapi.json`
+- Frontend API guide: [`docs/organization-employee-api.md`](./docs/organization-employee-api.md)
+- Frontend Leaves API guide: [`docs/leaves-api.md`](./docs/leaves-api.md)
 
 ## Tech Stack
 

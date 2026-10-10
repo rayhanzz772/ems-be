@@ -37,10 +37,6 @@ module.exports = {
           key: 'id'
         }
       },
-      position: {
-        type: Sequelize.STRING,
-        allowNull: false
-      },
       status: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
@@ -52,6 +48,48 @@ module.exports = {
       },
       address: {
         type: Sequelize.STRING,
+        allowNull: true
+      },
+      position_id: {
+        type: Sequelize.STRING,
+        allowNull: false,
+        references: {
+          model: 'positions',
+          key: 'id'
+        }
+      },
+      manager_id: {
+        type: Sequelize.STRING,
+        allowNull: true,
+        references: {
+          model: 'employees',
+          key: 'id'
+        }
+      },
+      branch_id: {
+        type: Sequelize.STRING,
+        allowNull: true,
+        references: {
+          model: 'branches',
+          key: 'id'
+        }
+      },
+      employment_type: {
+        type: Sequelize.ENUM('PERMANENT', 'CONTRACT', 'INTERN'),
+        allowNull: false,
+        defaultValue: 'PERMANENT'
+      },
+      employment_status: {
+        type: Sequelize.STRING,
+        allowNull: false,
+        defaultValue: 'ACTIVE'
+      },
+      contract_start_date: {
+        type: Sequelize.DATEONLY,
+        allowNull: true
+      },
+      contract_end_date: {
+        type: Sequelize.DATEONLY,
         allowNull: true
       },
       created_at: {
@@ -67,6 +105,7 @@ module.exports = {
         type: Sequelize.DATE
       }
     })
+
   },
   async down (queryInterface, Sequelize) {
     await queryInterface.dropTable('employees')
