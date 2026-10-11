@@ -245,8 +245,25 @@ class Controller {
     try {
       const user = await User.findByPk(req.params.id)
 
+      const userRole = await db.sequelize.query(
+        `
+        SELECT r.name as role
+        FROM users u
+        JOIN roles r ON r.id = u.role_id
+        WHERE u.id = :userId
+        `,
+        {
+          replacements: { userId: req.params.id },
+          type: db.sequelize.QueryTypes.SELECT
+        }
+      )
+
       if (!user) {
         throw { code: HttpStatusCode.NotFound, message: 'User not found' }
+      }
+
+      if (userRole[0].role === 'ADMIN') {
+        throw { code: HttpStatusCode.BadRequest, message: 'Cannot update status of ADMIN role' }
       }
 
       const oldData = getPublicUser(user)

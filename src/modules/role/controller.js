@@ -259,7 +259,7 @@ class Controller {
         return next({ statusCode: 403, message: 'Admin role is required to toggle role status' })
       }
 
-      if (userRole === 'ADMIN' && role.name === 'ADMIN') {
+      if (role.name === 'ADMIN') {
         return next({ statusCode: 403, message: 'Cannot toggle status of ADMIN role' })
       }
 
