@@ -148,12 +148,11 @@ class Controller {
   static async createUser(req, res, next) {
     try {
       const payload = validateRequest(createUserSchema, { body: req.body })
-      const roleId = await resolveRoleId(payload.role || 'EMPLOYEE')
 
       const user = await User.create({
         id: cuid(),
         email: payload.email,
-        role_id: roleId,
+        role_id: payload.role_id,
         status: payload.status,
         password: await hashPassword(payload.password)
       })

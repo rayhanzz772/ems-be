@@ -1,7 +1,5 @@
 const { z } = require('zod')
 
-const roles = ['ADMIN', 'HR', 'EMPLOYEE']
-
 const createUserSchema = z.object({
 	email: z
 		.string({ required_error: 'Email is required' })
@@ -11,7 +9,7 @@ const createUserSchema = z.object({
 	password: z
 		.string({ required_error: 'Password is required' })
 		.min(8, 'Password must be at least 8 characters'),
-	role: z.enum(roles).default('EMPLOYEE'),
+	role_id: z.string().nonempty('Role is required'),
 	status: z.boolean().default(true)
 })
 
@@ -19,7 +17,7 @@ const updateUserSchema = z
 	.object({
 		email: z.string().trim().min(1, 'Email is required').email('Invalid email format').optional(),
 		password: z.string().min(8, 'Password must be at least 8 characters').optional(),
-		role: z.enum(roles).optional(),
+		role_id: z.string().nonempty('Role is required').optional(),
 		status: z.boolean().optional()
 	})
 	.refine((payload) => Object.keys(payload).length > 0, {
