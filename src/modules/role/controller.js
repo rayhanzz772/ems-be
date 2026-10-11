@@ -1,4 +1,5 @@
 const cuid = require('cuid')
+const { Op } = require('sequelize')
 const { api } = require('../../../src/utils/api')
 const db = require('../../../db/models')
 const { HttpStatusCode } = require('axios')
@@ -105,12 +106,26 @@ class Controller {
 
   static async getRolePermissions(req, res, next) {
     try {
-      const role = await Role.findByPk(req.params.id, {
-        include: [{ model: db.Permission, as: 'permissions', attributes: ['id', 'key', 'resource', 'action', 'description'] }]
+      const role = await Role.findByPk(req.params.id)
+      if (!role) throw { code: HttpStatusCode.NotFound, message: 'Role not found' }
+
+      const where = {}
+      if (req.query.q?.trim()) {
+        const q = `%${req.query.q.trim()}%`
+        where[Op.or] = [
+          { key: { [Op.iLike]: q } },
+          { resource: { [Op.iLike]: q } },
+          { action: { [Op.iLike]: q } },
+          { description: { [Op.iLike]: q } }
+        ]
+      }
+
+      const permissions = await role.getPermissions({
+        attributes: ['id', 'key', 'resource', 'action', 'description'],
+        where
       })
 
-      if (!role) throw { code: HttpStatusCode.NotFound, message: 'Role not found' }
-      return res.status(HttpStatusCode.Ok).json(api(role.permissions, HttpStatusCode.Ok))
+      return res.status(HttpStatusCode.Ok).json(api(permissions, HttpStatusCode.Ok))
     } catch (err) {
       return next(err)
     }
