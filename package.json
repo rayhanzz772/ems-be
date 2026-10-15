@@ -16,8 +16,8 @@
     "seed:make": "npx sequelize-cli seed:generate --name",
     "make:full": "npm run model:make -- --name",
     "make:seed": "npm run seed:make -- --name",
-      "make:all": "node src/scripts/make-all.js",
-      "test": "node --test"
+    "make:all": "node src/scripts/make-all.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +38,9 @@
     "morgan": "^1.10.1",
     "mysql2": "^3.15.3",
     "pg": "^8.16.3",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "pino-pretty": "^13.2.0",
     "sequelize": "^6.37.7",
     "sequelize-cli": "^6.6.3",
     "zod": "^4.1.12"

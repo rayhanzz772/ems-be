@@ -1,5 +1,6 @@
 const { UniqueConstraintError, ForeignKeyConstraintError, ValidationError } = require('sequelize')
 const { api } = require('../utils/api')
+const { logger } = require('../utils/logger')
 
 const errorMiddleware = (err, req, res, next) => {
   if (res.headersSent) {
@@ -25,7 +26,11 @@ const errorMiddleware = (err, req, res, next) => {
   }
 
   if (statusCode >= 500) {
-    console.error(err)
+    if (req.log) {
+      req.log.error({ err, statusCode }, err?.message || 'Server Error')
+    } else {
+      logger.error({ err, statusCode }, err?.message || 'Server Error')
+    }
   }
 
   return res.status(statusCode).json(response)

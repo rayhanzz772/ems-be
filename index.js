@@ -2,7 +2,7 @@ require('dotenv').config({})
 
 const express = require('express')
 const app = express()
-const morgan = require('morgan')
+const { httpLogger, logger } = require('./src/utils/logger')
 const cors = require('cors')
 const route = require('./src/routes')
 const { createServer } = require('node:http')
@@ -70,7 +70,7 @@ const corsOptions = (req, callback) => {
   })
 }
 
-app.use(morgan('dev'))
+app.use(httpLogger)
 app.use(cors(corsOptions))
 app.use(cookieParser())
 
@@ -125,7 +125,7 @@ const port = process.env.PORT || 8000
 const server = createServer(app)
 
 server.listen(port, () => {
-  console.log(`Server Running ⚡ PORT : ${port}`)
+  logger.info(`Server Running ⚡ PORT : ${port}`)
 })
 
 module.exports = app
