@@ -5,6 +5,7 @@ const argon2 = require('argon2')
 module.exports = {
   async up (queryInterface, Sequelize) {
     const now = new Date()
+    const userColumns = await queryInterface.describeTable('users')
     const roles = await queryInterface.sequelize.query(
       `SELECT id, name FROM roles`,
       { type: Sequelize.QueryTypes.SELECT }
@@ -34,7 +35,17 @@ module.exports = {
         created_at: now,
         updated_at: now
       }
-    ].filter((user) => !existingEmails.has(user.email))
+    ]
+      .filter((user) => !existingEmails.has(user.email))
+      // DB lama masih punya users.username / users.name NOT NULL yang tidak ada
+      // di skema sekarang. Isi hanya bila kolomnya benar-benar ada.
+      .map((user) => ({
+        ...user,
+        ...(userColumns.username ? { username: user.email.split('@')[0] } : {}),
+        ...(userColumns.name
+          ? { name: user.role_id === roleMap.ADMIN ? 'Demo Admin' : 'Demo HR' }
+          : {})
+      }))
 
     if (usersToInsert.length) {
       await queryInterface.bulkInsert('users', usersToInsert)

@@ -20,7 +20,9 @@ module.exports = {
     const roleKeys = {
       ADMIN: allKeys,
       HR: allKeys.filter((key) => !['role.delete', 'user.delete', 'employee.delete', 'department.delete'].includes(key)),
-      EMPLOYEE: ['dashboard.read', 'employee.read']
+      // employee.read sengaja tidak diberikan: endpoint GET /employees mengembalikan
+      // telepon, alamat, tanggal kontrak, dan status resign seluruh karyawan.
+      EMPLOYEE: ['dashboard.read']
     }
     const now = new Date()
     const rows = []

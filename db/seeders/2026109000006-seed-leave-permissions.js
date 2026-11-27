@@ -18,6 +18,21 @@ const leavePermissions = [
   ['leave_balance.delete', 'leave_balance', 'delete', 'Delete leave balances']
 ]
 
+// Subset self-service untuk karyawan biasa. `decide` dan `decide_direct_report`
+// sengaja tidak diberikan: authorizeDecision LEVEL_2 hanya memeriksa key tersebut,
+// sehingga karyawan biasa bisa menyetujui permohonan siapa pun.
+const roleKeys = {
+  ADMIN: leavePermissions.map(([key]) => key),
+  HR: leavePermissions.map(([key]) => key),
+  EMPLOYEE: [
+    'leave_request.read',
+    'leave_request.create',
+    'leave_request.update',
+    'leave_type.read',
+    'leave_balance.read'
+  ]
+}
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     const existingPermissions = await queryInterface.sequelize.query(
@@ -59,8 +74,10 @@ module.exports = {
     const rows = []
 
     for (const role of roles) {
-      if (!['ADMIN', 'HR'].includes(role.name)) continue
+      const allowedKeys = roleKeys[role.name]
+      if (!allowedKeys) continue
       for (const [key] of leavePermissions) {
+        if (!allowedKeys.includes(key)) continue
         const permissionId = permissionIds.get(key)
         if (permissionId && !assignments.has(`${role.id}:${permissionId}`)) {
           rows.push({

@@ -19,6 +19,8 @@ Kontrak lengkap tetap ada di `GET /api-docs/openapi.json`. Dokumen ini menjelask
 | 2 | Approval cuti dua tingkat | Lihat `docs/leaves-api.md`. |
 | 2 | `duration_days` dihitung server | FE tidak boleh mengirim `duration_days`. |
 | 2 | Daftar/detail cuti dibatasi per tim | Non-HR hanya melihat cuti sendiri dan tim langsung. |
+| 2 | Set permission role `EMPLOYEE` dibatasi | Karyawan biasa kehilangan akses ke halaman Employees (`employee.read` dihapus) dan tidak bisa lagi memutuskan cuti (`leave_request.decide` dihapus). |
+| 2 | `PUT /roles/:id/permissions` bersifat full replace | Layar Roles harus mengirim **seluruh** set yang diinginkan, bukan hanya yang baru dipilih. Lihat §6.2. |
 
 ---
 
@@ -270,6 +272,47 @@ FE sebaiknya:
 
 - Menampilkan tombol setujui/tolak hanya bila user punya `leave_request.decide` atau `leave_request.decide_direct_report`, **dan** baris tersebut memang ada di tingkat yang bisa dia putuskan.
 - Tetap menangani `403` dari server sebagai keputusan final.
+- Sadari bahwa `leave_request.decide` dipakai BE untuk dua hal: hak memutuskan **dan** hak mengajukan cuti untuk orang lain. Jangan memberikan key ini ke role karyawan biasa hanya untuk memberi akses mengajukan; gunakan `leave_request.create`.
+
+### 6.1 Set permission yang diharapkan per role
+
+Server tidak memeriksa nama role, hanya key permission. Karena itu set per role adalah satu-satunya pengaman. Kondisi yang diharapkan setelah Fase 2:
+
+| Role | Key yang diharapkan | Catatan |
+|---|---|---|
+| `ADMIN` | Semua key, termasuk `leave_request.decide` | ADMIN ikut rantai approval, tidak bypass. |
+| `HR` | Semua key kecuali `role.delete`, `user.delete`, `employee.delete`, `department.delete`, **plus** `leave_request.decide_direct_report` | Key terakhir hanya diberikan manual lewat layar Roles. |
+| `EMPLOYEE` | `dashboard.read`, `leave_request.read`, `leave_request.create`, `leave_request.update`, `leave_type.read`, `leave_balance.read` | Tepat enam key. |
+
+`EMPLOYEE` **tidak boleh** memiliki:
+
+- `employee.read` atau `employee.export` — `GET /api/v1/employees` mengembalikan `phone_number`, `address`, `contract_start_date`, `contract_end_date`, `hire_date`, dan `employment_status` seluruh karyawan tanpa pembatasan baris. Ini data pribadi, bukan direktori. Karyawan biasa tidak punya layar yang membutuhkannya.
+- `leave_request.decide` atau `leave_request.decide_direct_report` — `authorizeDecision` untuk `LEVEL_2` hanya memeriksa `leave_request.decide`. Tanpa guard lain, karyawan biasa yang memegang key itu bisa menyetujui permohonan cuti siapa pun.
+- `leave_request.delete`, `leave_type.create/update/delete`, `leave_balance.create/update/delete`.
+- Semua key `user.*`, `role.*`, `audit_log.*`.
+
+Pengajuan cuti sendiri **tidak** membutuhkan `employee.read`. FE memakai `employee_id` dari `/auth/get-me`. Sidebar **Employees** digerbangi `employee.read`, jadi item itu hilang sendiri untuk karyawan biasa — itu perilaku yang diinginkan, bukan bug.
+
+Bila set ini rusak lagi (misalnya oleh seeding ulang dengan seeder lama), perbaiki dengan:
+
+```bash
+npm run repair:roles               # dry-run, hanya mencetak rencana
+npm run repair:roles -- --apply    # tulis
+```
+
+Skripnya idempoten dan hanya menyentuh role `EMPLOYEE`.
+
+### 6.2 `PUT /roles/:id/permissions` adalah full replace
+
+`src/modules/role/controller.js` menghapus **seluruh** baris `role_permissions` milik role itu (`destroy({ where: { role_id } })`) lalu menulis ulang isi `permission_ids`. Endpoint ini bukan append dan bukan delta.
+
+Konsekuensi untuk layar Roles:
+
+- Kirim daftar lengkap permission yang seharusnya dimiliki role itu, termasuk yang tidak diubah.
+- Mengirim daftar kosong menghapus semua permission role tersebut.
+- Kesalahan ini tidak terlihat di UI: role yang kehilangan `dashboard.read` tetap bisa login, tapi langsung kehilangan akses lain secara diam-diam.
+
+Inilah yang terjadi pada role `EMPLOYEE`: dialog Manage permissions tersimpan dengan hanya 13 key cuti, sehingga `dashboard.read` hilang dan `leave_request.decide` justru masuk.
 
 ---
 
@@ -365,6 +408,14 @@ Bila database tidak dapat dihubungi, endpoint membalas `503`. FE boleh memakai `
 ### Cuti
 
 - [ ] Ikuti `docs/leaves-api.md`.
+- [ ] Gerbang "ajukan untuk karyawan lain" mengikuti BE: hanya `leave_request.decide`. `employee.read` hanya menentukan pemilih karyawan bisa dimuat.
+- [ ] Query yang bisa dinonaktifkan (`enabled: false`) tidak boleh memakai `isPending` sebagai syarat disabled; pakai `isLoading` atau `isFetching`.
+
+### Roles
+
+- [ ] Dialog manage permission mengirim set lengkap role, bukan hanya pilihan baru (lihat §6.2).
+- [ ] Set `EMPLOYEE` sesuai daftar di §6.1; tidak ada `employee.read` maupun key `decide`.
+- [ ] Sidebar menyembunyikan **Employees** untuk karyawan biasa tanpa menampilkan error.
 
 ---
 

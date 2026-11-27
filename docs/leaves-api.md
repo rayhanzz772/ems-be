@@ -230,7 +230,7 @@ Tolak:
 | Pemohon memutuskan sendiri | `403` |
 | Permission tidak cukup | `403` |
 | Status bukan `PENDING` | `409` |
-| Saldo tidak cukup | `409` |
+| Saldo tidak cukup atau baris saldo belum ada | `409` |
 
 FE harus tetap menampilkan error dari server; jangan hanya mengandalkan tombol yang disembunyikan.
 
@@ -298,6 +298,8 @@ Endpoint saldo tidak berubah:
 - `DELETE /api/v1/leaves/balances/:id/delete`
 
 Yang berubah hanya waktu pemotongan: sekarang terjadi di persetujuan `LEVEL_2`, bukan saat pembuatan atau persetujuan `LEVEL_1`.
+
+`409` saat `LEVEL_2` setuju punya dua sebab: saldo tidak cukup, **atau baris saldo belum ada sama sekali** untuk kombinasi karyawan + tipe cuti + tahun. Baris saldo dibuat oleh seeder `db/seeders/20261128000001-seed-leave-balances.js` (karyawan aktif, tahun berjalan + tahun berikutnya, idempoten — baris lama tidak ditimpa). Untuk karyawan baru di luar siklus seed, HR membuat saldo lewat `POST /api/v1/leaves/balances/create`. FE menampilkan pesan `409` apa adanya; jangan menebak sebabnya.
 
 FE sebaiknya menampilkan saldo sebagai informasi, bukan dasar perhitungan di klien. Server tetap memvalidasi saat persetujuan final.
 

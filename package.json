@@ -18,6 +18,7 @@
     "make:seed": "npm run seed:make -- --name",
     "make:all": "node src/scripts/make-all.js",
     "link:users": "node src/scripts/link-users-employees.js",
+    "repair:roles": "node src/scripts/repair-employee-role.js",
     "test": "node --test"
   },
   "keywords": [],

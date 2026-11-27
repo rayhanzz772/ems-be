@@ -80,14 +80,19 @@ module.exports = {
 
     for (const role of defaultRoles) {
       if (!roleMap[role.name]) {
-        await queryInterface.bulkInsert('roles', [{
+        const row = {
           id: role.id,
           name: role.name,
           description: role.description,
           status: role.status,
           created_at: new Date(),
           updated_at: new Date()
-        }])
+        }
+        // Sebagian DB lama punya kolom roles.code NOT NULL yang tidak ada di
+        // skema repo. Isi hanya bila kolomnya benar-benar ada.
+        if (rolesTable.code) row.code = role.name
+
+        await queryInterface.bulkInsert('roles', [row])
         roleMap[role.name] = role.id
       }
     }
@@ -105,29 +110,29 @@ module.exports = {
       })
     }
 
-    const users = await queryInterface.sequelize.query(
-      'SELECT id, role FROM users WHERE role IS NOT NULL',
-      { type: Sequelize.QueryTypes.SELECT }
-    )
-
-    for (const user of users) {
-      const roleName = String(user.role).toUpperCase()
-      const targetRoleId = roleMap[roleName]
-
-      if (targetRoleId) {
-        await queryInterface.sequelize.query(
-          'UPDATE users SET role_id = :roleId WHERE id = :userId',
-          {
-            replacements: {
-              roleId: targetRoleId,
-              userId: user.id
-            }
-          }
-        )
-      }
-    }
-
     if (usersTable.role) {
+      const users = await queryInterface.sequelize.query(
+        'SELECT id, role FROM users WHERE role IS NOT NULL',
+        { type: Sequelize.QueryTypes.SELECT }
+      )
+
+      for (const user of users) {
+        const roleName = String(user.role).toUpperCase()
+        const targetRoleId = roleMap[roleName]
+
+        if (targetRoleId) {
+          await queryInterface.sequelize.query(
+            'UPDATE users SET role_id = :roleId WHERE id = :userId',
+            {
+              replacements: {
+                roleId: targetRoleId,
+                userId: user.id
+              }
+            }
+          )
+        }
+      }
+
       await queryInterface.removeColumn('users', 'role')
     }
 

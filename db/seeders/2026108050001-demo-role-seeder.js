@@ -4,6 +4,7 @@ const cuid = require('cuid')
 module.exports = {
   async up (queryInterface, Sequelize) {
     const now = new Date()
+    const roleColumns = await queryInterface.describeTable('roles')
     const existingRoles = await queryInterface.sequelize.query(
       `SELECT name FROM roles`,
       { type: Sequelize.QueryTypes.SELECT }
@@ -34,7 +35,10 @@ module.exports = {
         created_at: now,
         updated_at: now
       }
-    ].filter((role) => !existingRoleNames.has(role.name))
+    ]
+      .filter((role) => !existingRoleNames.has(role.name))
+      // DB lama bisa punya roles.code NOT NULL walau skema repo tidak.
+      .map((role) => (roleColumns.code ? { ...role, code: role.name } : role))
 
     if (rolesToInsert.length) {
       await queryInterface.bulkInsert('roles', rolesToInsert)
