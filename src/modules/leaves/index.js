@@ -22,7 +22,8 @@ router.get('/requests/:id/detail', requirePermission('leave_request.read'), Cont
 router.post('/requests/create', requirePermission('leave_request.create'), Controller.createLeaveRequest)
 router.put('/requests/:id/update', requirePermission('leave_request.update'), Controller.updateLeaveRequest)
 router.delete('/requests/:id/delete', requirePermission('leave_request.delete'), Controller.deleteLeaveRequest)
-router.patch('/requests/:id/decision', requirePermission('leave_request.decide'), Controller.decideLeaveRequest)
+router.patch('/requests/:id/decision', requirePermission(['leave_request.decide', 'leave_request.decide_direct_report']), Controller.decideLeaveRequest)
+router.patch('/requests/:id/submit', requirePermission('leave_request.update'), Controller.submitLeaveRequest)
 router.patch('/requests/:id/cancel', requirePermission('leave_request.update'), Controller.cancelLeaveRequest)
 
 router.get('/balances', requirePermission('leave_balance.read'), Controller.getLeaveBalances)

@@ -108,6 +108,8 @@ const auditLogCsv = async (logs) => {
         { header: 'ID', key: 'id', width: 24 },
         { header: 'User ID', key: 'user_id', width: 24 },
         { header: 'User Email', key: 'user_email', width: 32 },
+        { header: 'Actor Type', key: 'actor_type', width: 14 },
+        { header: 'Actor Label', key: 'actor_label', width: 32 },
         { header: 'Action', key: 'action', width: 14 },
         { header: 'Entity', key: 'entity', width: 20 },
         { header: 'Entity ID', key: 'entity_id', width: 24 },

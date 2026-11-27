@@ -26,6 +26,7 @@ const buildAuditLogQuery = (filters, paginate = false) => {
 		conditions.push(`(
 			LOWER(a.entity) LIKE LOWER(:search) OR
 			LOWER(a.entity_id) LIKE LOWER(:search) OR
+			LOWER(a.actor_label) LIKE LOWER(:search) OR
 			LOWER(u.email) LIKE LOWER(:search)
 		)`)
 		replacements.search = `%${filters.q}%`
@@ -85,6 +86,8 @@ const selectAuditLogs = (query, paginate = false) => {
 			a.id,
 			a.user_id,
 			u.email AS user_email,
+			a.actor_type,
+			a.actor_label,
 			a.action,
 			a.entity,
 			a.entity_id,

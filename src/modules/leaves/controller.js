@@ -8,6 +8,16 @@ const { api } = require('../../utils/api')
 const { validateRequest } = require('../../utils/validation')
 const { createAuditLog } = require('../../utils/auditLog')
 const {
+  LEVELS,
+  DECIDE_PERMISSION,
+  countWorkDays,
+  resolveApprovalChain,
+  authorizeDecision,
+  applyBalanceOnFinalApproval,
+  notifyCurrentApprover,
+  notifyApplicant
+} = require('./service')
+const {
   createLeaveTypeSchema,
   updateLeaveTypeSchema,
   createLeaveRequestSchema,
@@ -87,6 +97,55 @@ const validateListQuery = (query, allowedStatuses = []) => {
     query.start_date > query.end_date
   ) {
     throw { code: HttpStatusCode.BadRequest, message: 'start_date must be on or before end_date' }
+  }
+}
+
+const managerOf = async (employee) => {
+  if (!employee?.manager_id) return null
+  return db.Employee.findByPk(employee.manager_id)
+}
+
+/**
+ * HR (pemegang `leave_request.decide`) melihat semua. Selain itu hanya
+ * permohonan sendiri, milik tim langsung, atau yang dia menjadi approver LEVEL_1.
+ */
+const buildListScope = async (req) => {
+  if ((req.user.permissions || []).includes(DECIDE_PERMISSION)) return null
+
+  const employeeId = req.user.employeeId
+  if (!employeeId) {
+    throw { code: HttpStatusCode.Forbidden, message: 'User is not linked to an employee record' }
+  }
+
+  const reports = await db.Employee.findAll({
+    where: { manager_id: employeeId },
+    attributes: ['id']
+  })
+
+  return {
+    [Op.or]: [
+      { employee_id: employeeId },
+      { level_1_employee_id: employeeId },
+      { employee_id: { [Op.in]: reports.map((report) => report.id) } }
+    ]
+  }
+}
+
+const assertCanViewLeaveRequest = async (leaveRequest, req) => {
+  if ((req.user.permissions || []).includes(DECIDE_PERMISSION)) return
+
+  const employeeId = req.user.employeeId
+  const isOwner = employeeId && leaveRequest.employee_id === employeeId
+  const isLevel1Approver = employeeId && leaveRequest.level_1_employee_id === employeeId
+
+  if (!isOwner && !isLevel1Approver) {
+    const isDirectReport = employeeId && await db.Employee.findOne({
+      where: { id: leaveRequest.employee_id, manager_id: employeeId },
+      attributes: ['id']
+    })
+    if (!isDirectReport) {
+      throw { code: HttpStatusCode.Forbidden, message: 'Not allowed to view this leave request' }
+    }
   }
 }
 
@@ -218,14 +277,18 @@ class Controller {
       validateListQuery(req.query, ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'])
       const page = parsePage(req.query.page, 1)
       const perPage = parsePage(req.query.per_page, 10, 100)
-      const where = {}
+      const filters = {}
       for (const field of ['employee_id', 'leave_type_id', 'approver_id', 'status']) {
-        if (req.query[field] !== undefined) where[field] = req.query[field]
+        if (req.query[field] !== undefined) filters[field] = req.query[field]
       }
       if (req.query.start_date || req.query.end_date) {
-        where.start_date = { [Op.lte]: req.query.end_date || '9999-12-31' }
-        where.end_date = { [Op.gte]: req.query.start_date || '0001-01-01' }
+        filters.start_date = { [Op.lte]: req.query.end_date || '9999-12-31' }
+        filters.end_date = { [Op.gte]: req.query.start_date || '0001-01-01' }
       }
+      const scope = await buildListScope(req)
+      const where = scope && Object.keys(filters).length
+        ? { [Op.and]: [scope, filters] }
+        : (scope || filters)
       const result = await LeaveRequest.findAndCountAll({
         where,
         include: leaveIncludes,
@@ -249,6 +312,7 @@ class Controller {
     try {
       const leaveRequest = await LeaveRequest.findByPk(req.params.id, { include: leaveIncludes })
       if (!leaveRequest) throw { code: HttpStatusCode.NotFound, message: 'Leave request not found' }
+      await assertCanViewLeaveRequest(leaveRequest, req)
       return res.status(HttpStatusCode.Ok).json(api(leaveRequest, HttpStatusCode.Ok))
     } catch (err) {
       return next(err)
@@ -262,23 +326,50 @@ class Controller {
         assertEmployee(payload.employee_id),
         assertLeaveType(payload.leave_type_id)
       ])
-      let status = 'PENDING'
-      
-      if (payload.approver_id) await assertEmployee(payload.approver_id)
+
+      // Hanya HR yang boleh mengajukan untuk karyawan lain.
+      if (
+        !(req.user.permissions || []).includes(DECIDE_PERMISSION) &&
+        payload.employee_id !== req.user.employeeId
+      ) {
+        throw { code: HttpStatusCode.Forbidden, message: 'Cannot submit a leave request for another employee' }
+      }
+
+      const durationDays = countWorkDays(payload.start_date, payload.end_date)
+      if (durationDays <= 0) {
+        throw { code: HttpStatusCode.BadRequest, message: 'Leave range contains no working days' }
+      }
+
       await assertNoOverlappingRequest({
         employeeId: employee.id,
         startDate: payload.start_date,
         endDate: payload.end_date
       })
-      if (req.user.role === 'ADMIN') {
-        status = 'APPROVED'
-      }
-      const leaveRequest = await LeaveRequest.create({
-        id: cuid(),
-        ...payload,
-        approver_id: payload.approver_id || employee.manager_id || null,
-        status: status
+
+      const chain = resolveApprovalChain({ employee, manager: await managerOf(employee) })
+      const { approver_id, ...requestPayload } = payload
+
+      const leaveRequest = await db.sequelize.transaction(async (transaction) => {
+        const created = await LeaveRequest.create({
+          id: cuid(),
+          ...requestPayload,
+          duration_days: durationDays,
+          approver_id: chain.level1EmployeeId,
+          current_level: chain.currentLevel,
+          level_1_employee_id: chain.level1EmployeeId,
+          status: 'PENDING'
+        }, { transaction })
+
+        await notifyCurrentApprover({
+          leaveRequest: created,
+          title: 'Leave request awaiting approval',
+          body: `${employee.first_name} ${employee.last_name} requested ${durationDays} working day(s) of ${leaveType.name}.`,
+          transaction
+        })
+
+        return created
       })
+
       await createAuditLog({
         userId: req.user.id,
         action: 'CREATE',
@@ -300,22 +391,39 @@ class Controller {
       if (leaveRequest.status !== 'PENDING') {
         throw { code: HttpStatusCode.Conflict, message: 'Only pending leave requests can be updated' }
       }
+      if (leaveRequest.level_1_decided_at) {
+        throw { code: HttpStatusCode.Conflict, message: 'Leave request was already approved at level 1 and is awaiting HR; cancel or delete it before changing' }
+      }
       const payload = validateRequest(updateLeaveRequestSchema, { body: req.body })
       const startDate = payload.start_date || leaveRequest.start_date
       const endDate = payload.end_date || leaveRequest.end_date
       if (endDate < startDate) {
         throw { code: HttpStatusCode.BadRequest, message: 'End date must be on or after the start date' }
       }
+      const durationDays = countWorkDays(startDate, endDate)
+      if (durationDays <= 0) {
+        throw { code: HttpStatusCode.BadRequest, message: 'Leave range contains no working days' }
+      }
       if (payload.leave_type_id) await assertLeaveType(payload.leave_type_id)
-      if (payload.approver_id) await assertEmployee(payload.approver_id)
       await assertNoOverlappingRequest({
         employeeId: leaveRequest.employee_id,
         startDate,
         endDate,
         excludeId: leaveRequest.id
       })
+
+      const employee = await db.Employee.findByPk(leaveRequest.employee_id)
+      const chain = resolveApprovalChain({ employee, manager: await managerOf(employee) })
+      const { approver_id, ...requestPayload } = payload
+
       const oldData = leaveRequest.toJSON()
-      await leaveRequest.update(payload)
+      await leaveRequest.update({
+        ...requestPayload,
+        duration_days: durationDays,
+        approver_id: chain.level1EmployeeId,
+        current_level: chain.currentLevel,
+        level_1_employee_id: chain.level1EmployeeId
+      })
       await createAuditLog({
         userId: req.user.id,
         action: 'UPDATE',
@@ -368,50 +476,163 @@ class Controller {
             throw { code: HttpStatusCode.Conflict, message: 'Only pending leave requests can be decided' }
           }
 
+          const level = leaveRequest.current_level || LEVELS.LEVEL_2
+          const authorization = authorizeDecision({
+            level,
+            callerEmployeeId: req.user.employeeId || null,
+            callerPermissions: req.user.permissions || [],
+            leaveRequest
+          })
+          if (!authorization.allowed) {
+            throw { code: authorization.code, message: authorization.message }
+          }
+
+          const oldData = leaveRequest.toJSON()
+
+          if (level === LEVELS.LEVEL_1) {
+            const patch = {
+              level_1_decided_by: req.user.id,
+              level_1_decided_at: new Date(),
+              level_1_note: payload.decision_note ?? null
+            }
+
+            if (payload.status === 'REJECTED') {
+              Object.assign(patch, {
+                status: 'REJECTED',
+                decision_note: payload.decision_note ?? null,
+                decided_by: req.user.id,
+                decided_at: new Date()
+              })
+            } else {
+              patch.current_level = LEVELS.LEVEL_2
+            }
+
+            await leaveRequest.update(patch, { transaction })
+
+            if (payload.status === 'REJECTED') {
+              await notifyApplicant({
+                leaveRequest,
+                title: 'Leave request rejected',
+                body: 'Your leave request was rejected by your direct manager.',
+                transaction
+              })
+            } else {
+              await notifyCurrentApprover({
+                leaveRequest,
+                title: 'Leave request awaiting final approval',
+                body: 'A direct manager approved a leave request and it now needs HR approval.',
+                transaction
+              })
+            }
+
+            return { leaveRequest, oldData }
+          }
+
           const leaveType = await LeaveType.findByPk(leaveRequest.leave_type_id, { transaction })
           if (!leaveType) {
             throw { code: HttpStatusCode.Conflict, message: 'Leave type for this request no longer exists' }
           }
 
-          if (payload.status === 'APPROVED' && leaveType.requires_balance) {
-            if (leaveRequest.start_date.slice(0, 4) !== leaveRequest.end_date.slice(0, 4)) {
-              throw { code: HttpStatusCode.BadRequest, message: 'Balance-based leave must be within one calendar year' }
-            }
-            const balance = await LeaveBalance.findOne({
-              where: {
-                employee_id: leaveRequest.employee_id,
-                leave_type_id: leaveRequest.leave_type_id,
-                year: Number(leaveRequest.start_date.slice(0, 4))
-              },
-              transaction,
-              lock: transaction.LOCK.UPDATE
-            })
-            if (!balance) {
-              throw { code: HttpStatusCode.Conflict, message: 'No leave balance exists for this employee, leave type, and year' }
-            }
-            const availableDays = Number(balance.allocated_days) +
-              Number(balance.adjustment_days) -
-              Number(balance.used_days)
-            if (availableDays < Number(leaveRequest.duration_days)) {
-              throw { code: HttpStatusCode.Conflict, message: 'Insufficient leave balance' }
-            }
-            await balance.increment('used_days', {
-              by: Number(leaveRequest.duration_days),
-              transaction
-            })
-            await balance.reload({ transaction })
+          if (payload.status === 'APPROVED') {
+            await applyBalanceOnFinalApproval({ leaveRequest, leaveType, transaction })
           }
 
-          const oldData = leaveRequest.toJSON()
           await leaveRequest.update({
             status: payload.status,
             decision_note: payload.decision_note ?? null,
             decided_by: req.user.id,
-            decided_at: new Date()
+            decided_at: new Date(),
+            level_2_decided_by: req.user.id,
+            level_2_decided_at: new Date(),
+            level_2_note: payload.decision_note ?? null
           }, { transaction })
+
+          await notifyApplicant({
+            leaveRequest,
+            title: payload.status === 'APPROVED' ? 'Leave request approved' : 'Leave request rejected',
+            body: `Your leave request was ${payload.status.toLowerCase()}.`,
+            transaction
+          })
+
           return { leaveRequest, oldData }
         }
       )
+      await createAuditLog({
+        userId: req.user.id,
+        action: 'UPDATE',
+        entity: 'LeaveRequest',
+        entityId: result.leaveRequest.id,
+        oldData: result.oldData,
+        newData: result.leaveRequest.toJSON()
+      })
+      const updated = await LeaveRequest.findByPk(result.leaveRequest.id, { include: leaveIncludes })
+      return res.status(HttpStatusCode.Ok).json(api(updated, HttpStatusCode.Ok))
+    } catch (err) {
+      return next(err)
+    }
+  }
+
+  static async submitLeaveRequest(req, res, next) {
+    try {
+      const result = await db.sequelize.transaction(async (transaction) => {
+        const leaveRequest = await LeaveRequest.findByPk(req.params.id, {
+          transaction,
+          lock: transaction.LOCK.UPDATE
+        })
+        if (!leaveRequest) throw { code: HttpStatusCode.NotFound, message: 'Leave request not found' }
+        if (leaveRequest.status !== 'REJECTED') {
+          throw { code: HttpStatusCode.Conflict, message: 'Only rejected leave requests can be resubmitted' }
+        }
+
+        const isHr = (req.user.permissions || []).includes(DECIDE_PERMISSION)
+        if (!isHr && req.user.employeeId !== leaveRequest.employee_id) {
+          throw { code: HttpStatusCode.Forbidden, message: 'Not allowed to resubmit this leave request' }
+        }
+
+        await assertNoOverlappingRequest({
+          employeeId: leaveRequest.employee_id,
+          startDate: leaveRequest.start_date,
+          endDate: leaveRequest.end_date,
+          excludeId: leaveRequest.id
+        })
+
+        const durationDays = countWorkDays(leaveRequest.start_date, leaveRequest.end_date)
+        if (durationDays <= 0) {
+          throw { code: HttpStatusCode.BadRequest, message: 'Leave range contains no working days' }
+        }
+
+        const employee = await db.Employee.findByPk(leaveRequest.employee_id)
+        const chain = resolveApprovalChain({ employee, manager: await managerOf(employee) })
+        const oldData = leaveRequest.toJSON()
+
+        await leaveRequest.update({
+          status: 'PENDING',
+          current_level: chain.currentLevel,
+          level_1_employee_id: chain.level1EmployeeId,
+          approver_id: chain.level1EmployeeId,
+          duration_days: durationDays,
+          level_1_decided_by: null,
+          level_1_decided_at: null,
+          level_1_note: null,
+          level_2_decided_by: null,
+          level_2_decided_at: null,
+          level_2_note: null,
+          decision_note: null,
+          decided_by: null,
+          decided_at: null,
+          escalated_at: null
+        }, { transaction })
+
+        await notifyCurrentApprover({
+          leaveRequest,
+          title: 'Leave request awaiting approval',
+          body: 'A leave request was resubmitted and needs approval.',
+          transaction
+        })
+
+        return { leaveRequest, oldData }
+      })
+
       await createAuditLog({
         userId: req.user.id,
         action: 'UPDATE',

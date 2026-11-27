@@ -1,8 +1,17 @@
-const jwt = require('jsonwebtoken')
 const db = require('../../../db/models')
 const { api } = require('../../utils/api')
 const { compare } = require('../../utils/argon')
 const { HttpStatusCode } = require('axios')
+const {
+  signAccessToken,
+  hashToken,
+  setAuthCookies,
+  clearAuthCookies,
+  createSession,
+  rotateSession,
+  revokeSessionByToken,
+  revokeSessionById
+} = require('./session')
 
 const User = db.User
 
@@ -20,6 +29,14 @@ const roleWithPermissions = {
   }]
 }
 
+const toSessionUser = (user) => ({
+  id: user.id,
+  email: user.email,
+  employee_id: user.employee_id || null,
+  role: getUserRoleName(user),
+  permissions: getUserPermissionKeys(user)
+})
+
 class Controller {
   static async login(req, res, next) {
     try {
@@ -31,9 +48,7 @@ class Controller {
       }
 
       const user = await User.findOne({
-        where: {
-          email: email
-        },
+        where: { email },
         include: [roleWithPermissions]
       })
 
@@ -51,35 +66,63 @@ class Controller {
         throw { code: 400, message: 'Invalid Password' }
       }
 
-      const roleName = getUserRoleName(user)
-      const payload = {
+      const { session, refreshToken } = await createSession({
         userId: user.id,
-        role: roleName,
-        status: user.status
-      }
-
-      const token = jwt.sign(payload, process.env.JWT_KEY, {
-        expiresIn: '7d'
+        req
       })
 
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000
+      const accessToken = signAccessToken({
+        userId: user.id,
+        employeeId: user.employee_id,
+        role: getUserRoleName(user),
+        status: user.status,
+        sessionId: session.id
       })
 
-      const userSafe = {
-        id: user.id,
-        token: token,
-        email: user.email,
-        role: roleName,
-        permissions: getUserPermissionKeys(user)
+      setAuthCookies(res, { accessToken, refreshToken })
+
+      const result = {
+        ...toSessionUser(user),
+        token: accessToken
       }
 
       return res
         .status(HttpStatusCode.Ok)
-        .json(api(userSafe, HttpStatusCode.Ok, { req }))
+        .json(api(result, HttpStatusCode.Ok, { req }))
+    } catch (err) {
+      return next(err)
+    }
+  }
+
+  static async refresh(req, res, next) {
+    try {
+      const refreshToken = req.cookies?.refresh_token
+
+      if (!refreshToken) {
+        throw { code: HttpStatusCode.Unauthorized, message: 'No refresh token provided' }
+      }
+
+      const { user, session, refreshToken: nextRefreshToken } = await rotateSession({
+        refreshToken,
+        req
+      })
+
+      const accessToken = signAccessToken({
+        userId: user.id,
+        employeeId: user.employee_id,
+        role: getUserRoleName(user),
+        status: user.status,
+        sessionId: session.id
+      })
+
+      setAuthCookies(res, { accessToken, refreshToken: nextRefreshToken })
+
+      return res
+        .status(HttpStatusCode.Ok)
+        .json(api({
+          ...toSessionUser(user),
+          token: accessToken
+        }, HttpStatusCode.Ok, { req }))
     } catch (err) {
       return next(err)
     }
@@ -87,7 +130,8 @@ class Controller {
 
   static async logout(req, res, next) {
     try {
-      res.clearCookie('token')
+      await revokeSessionByToken({ refreshToken: req.cookies?.refresh_token })
+      clearAuthCookies(res)
       return res
         .status(HttpStatusCode.Ok)
         .json(api(null, HttpStatusCode.Ok, { req }))
@@ -98,26 +142,72 @@ class Controller {
 
   static async getMe(req, res, next) {
     try {
-      const userId = req.user.id
-
-      const user = await User.findByPk(userId, {
+      const user = await User.findByPk(req.user.id, {
         attributes: { exclude: ['password'] },
         include: [roleWithPermissions]
       })
 
       if (!user) throw new Error('User not found')
 
-      const result = {
-        id: user.id,
-        email: user.email,
-        status: user.status,
-        role: getUserRoleName(user),
-        permissions: getUserPermissionKeys(user)
-      }
+      return res
+        .status(HttpStatusCode.Ok)
+        .json(api({
+          id: user.id,
+          email: user.email,
+          employee_id: user.employee_id || null,
+          status: user.status,
+          role: getUserRoleName(user),
+          permissions: getUserPermissionKeys(user)
+        }, HttpStatusCode.Ok, { req }))
+    } catch (err) {
+      return next(err)
+    }
+  }
+
+  static async getSessions(req, res, next) {
+    try {
+      const sessions = await db.UserSession.findAll({
+        where: {
+          user_id: req.user.id,
+          revoked_at: null
+        },
+        order: [['created_at', 'DESC']]
+      })
+
+      const currentHash = req.cookies?.refresh_token
+        ? hashToken(req.cookies.refresh_token)
+        : null
+
+      const now = Date.now()
+      const active = sessions
+        .filter((session) => session.expires_at.getTime() > now)
+        .map((session) => ({
+          id: session.id,
+          current: currentHash === session.refresh_token_hash,
+          user_agent: session.user_agent,
+          ip_address: session.ip_address,
+          last_used_at: session.last_used_at,
+          expires_at: session.expires_at,
+          created_at: session.created_at
+        }))
 
       return res
         .status(HttpStatusCode.Ok)
-        .json(api(result, HttpStatusCode.Ok, { req }))
+        .json(api(active, HttpStatusCode.Ok, { req }))
+    } catch (err) {
+      return next(err)
+    }
+  }
+
+  static async revokeSession(req, res, next) {
+    try {
+      await revokeSessionById({
+        sessionId: req.params.id,
+        userId: req.user.id
+      })
+      return res
+        .status(HttpStatusCode.Ok)
+        .json(api({ id: req.params.id }, HttpStatusCode.Ok, { req }))
     } catch (err) {
       return next(err)
     }

@@ -63,6 +63,8 @@ class Controller {
             a.action,
             a.entity,
             a.entity_id,
+            a.actor_type,
+            a.actor_label,
             u.email AS user_email,
             a.created_at
           FROM audit_logs a
@@ -270,6 +272,8 @@ class Controller {
           action: item.action,
           entity: item.entity,
           entity_id: item.entity_id,
+          actor_type: item.actor_type,
+          actor_label: item.actor_label,
           user_email: item.user_email,
           created_at: item.created_at
         })),

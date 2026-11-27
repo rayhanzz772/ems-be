@@ -17,6 +17,7 @@
     "make:full": "npm run model:make -- --name",
     "make:seed": "npm run seed:make -- --name",
     "make:all": "node src/scripts/make-all.js",
+    "link:users": "node src/scripts/link-users-employees.js",
     "test": "node --test"
   },
   "keywords": [],
@@ -37,6 +38,8 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
     "mysql2": "^3.15.3",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.6.1",
     "pg": "^8.16.3",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",

@@ -19,12 +19,23 @@ module.exports = (sequelize, DataTypes) => {
       },
       user_id: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
         field: 'user_id',
         references: {
           model: 'users',
           key: 'id'
         }
+      },
+      actor_type: {
+        type: DataTypes.ENUM('USER', 'SYSTEM'),
+        allowNull: false,
+        defaultValue: 'USER',
+        field: 'actor_type'
+      },
+      actor_label: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'actor_label'
       },
       action: {
         type: DataTypes.ENUM('CREATE', 'UPDATE', 'DELETE'),

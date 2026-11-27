@@ -10,6 +10,7 @@ const createUserSchema = z.object({
 		.string({ required_error: 'Password is required' })
 		.min(8, 'Password must be at least 8 characters'),
 	role_id: z.string().nonempty('Role is required'),
+	employee_id: z.string().trim().min(1).nullable().optional(),
 	status: z.boolean().default(true)
 })
 
@@ -18,6 +19,7 @@ const updateUserSchema = z
 		email: z.string().trim().min(1, 'Email is required').email('Invalid email format').optional(),
 		password: z.string().min(8, 'Password must be at least 8 characters').optional(),
 		role_id: z.string().nonempty('Role is required').optional(),
+		employee_id: z.string().trim().min(1).nullable().optional(),
 		status: z.boolean().optional()
 	})
 	.refine((payload) => Object.keys(payload).length > 0, {

@@ -10,18 +10,22 @@ Employee Management System (EMS) is a Node.js + Express + Sequelize backend for 
 ## Features
 
 - Authentication and JWT-based session handling
+- Short-lived access token (15 minutes) with rotating refresh token and server-side session revocation
 - Role-based access control (RBAC) with configurable permissions for `ADMIN`, `HR`, and `EMPLOYEE`
 - User management
 - Branch and position management
 - Department management
 - Employee management with department, position, branch, and manager references
 - Leave types, requests, approvals, balances, and calendar API
+- In-app notifications with an email outbox that retries delivery
+- Background jobs for session cleanup and notification delivery (idempotent, one run at a time)
 - Audit log tracking for create/update/delete actions
 - CSV export for employees and audit logs
 - Dashboard summary for employee and activity insights
 - OpenAPI contract available at `/api-docs/openapi.json`
-- Frontend API guide: [`docs/organization-employee-api.md`](./docs/organization-employee-api.md)
+- Frontend integration guide: [`docs/fe-integration-guide.md`](./docs/fe-integration-guide.md)
 - Frontend Leaves API guide: [`docs/leaves-api.md`](./docs/leaves-api.md)
+- HRIS roadmap and phase plan: [`docs/hris-roadmap.md`](./docs/hris-roadmap.md), [`docs/hris-phase-implementation-plan.md`](./docs/hris-phase-implementation-plan.md)
 
 ## Tech Stack
 
@@ -55,9 +59,10 @@ Employee Management System (EMS) is a Node.js + Express + Sequelize backend for 
 │   ├── routes.js
 │   └── utils/
 ├── docs/
-│   ├── erd.dbml
-│   ├── leaves-api.md
-│   └── organization-employee-api.md
+│   ├── fe-integration-guide.md
+│   ├── hris-phase-implementation-plan.md
+│   ├── hris-roadmap.md
+│   └── leaves-api.md
 ├── index.js
 ├── package.json
 ├── .env.example
@@ -180,8 +185,17 @@ This is the contract used for frontend integration and documentation.
 ### Auth
 
 - `POST /api/v1/auth/login` — login and receive JWT token
+- `POST /api/v1/auth/refresh` — rotate the refresh token and issue a new access token
 - `GET /api/v1/auth/get-me` — get current logged-in user
-- `POST /api/v1/auth/logout` — clear auth token
+- `GET /api/v1/auth/sessions` — list active sessions for the current user
+- `DELETE /api/v1/auth/sessions/:id/revoke` — revoke one session
+- `POST /api/v1/auth/logout` — revoke the current session and clear auth cookies
+
+### Notifications
+
+- `GET /api/v1/notifications` — list the current user's notifications (`unread=true` supported)
+- `PATCH /api/v1/notifications/:id/read` — mark one as read
+- `PATCH /api/v1/notifications/read-all` — mark all as read
 
 ### Dashboard
 
@@ -242,7 +256,7 @@ This is the contract used for frontend integration and documentation.
 - `PATCH /api/v1/employees/:id/status`
 - `GET /api/v1/employees/export`
 
-Employee create/update uses `position_id` and optional `branch_id`; do not send the removed `work_location` field or the former free-text `position` field. See [`docs/organization-employee-api.md`](./docs/organization-employee-api.md) for the latest Employee fields, filters, payload examples, and Branch/Position API details.
+Employee create/update uses `position_id` and optional `branch_id`; do not send the removed `work_location` field or the former free-text `position` field. See `/api-docs/openapi.json` for the latest Employee fields, filters, payload examples, and Branch/Position API details.
 
 ### Leaves
 
@@ -257,6 +271,7 @@ Employee create/update uses `position_id` and optional `branch_id`; do not send 
 - `PUT /api/v1/leaves/requests/:id/update`
 - `DELETE /api/v1/leaves/requests/:id/delete`
 - `PATCH /api/v1/leaves/requests/:id/decision`
+- `PATCH /api/v1/leaves/requests/:id/submit`
 - `PATCH /api/v1/leaves/requests/:id/cancel`
 - `GET /api/v1/leaves/calendar`
 - `GET /api/v1/leaves/balances`
@@ -265,7 +280,9 @@ Employee create/update uses `position_id` and optional `branch_id`; do not send 
 - `PUT /api/v1/leaves/balances/:id/update`
 - `DELETE /api/v1/leaves/balances/:id/delete`
 
-See [`docs/leaves-api.md`](./docs/leaves-api.md) for request/response shapes, permissions, filters, status transitions, balance rules, and calendar integration.
+Leave approval runs in two levels. `LEVEL_1` is the employee's active direct manager; it needs `leave_request.decide_direct_report` and a match on the assigned row. `LEVEL_2` is HR and needs `leave_request.decide`. A manager rejecting at level 1 ends the request; approving moves it to level 2. Balance is consumed only on final approval. The requester can never decide their own request. Requests left at level 1 for `LEAVE_ESCALATION_DAYS` (default 3) are escalated to level 2.
+
+`duration_days` is calculated by the server from the date range and working days. Do not send it; client-supplied values are ignored. A range with no working days is rejected with `400`. Rejected requests can be resubmitted with `PATCH /api/v1/leaves/requests/:id/submit`.
 
 ### Audit Logs
 
@@ -392,20 +409,21 @@ employee.read          employee.create   employee.update   employee.delete
 employee.export
 leave_type.read        leave_type.create leave_type.update leave_type.delete
 leave_request.read     leave_request.create leave_request.update leave_request.delete
-leave_request.decide
+leave_request.decide   leave_request.decide_direct_report
 leave_balance.read     leave_balance.create leave_balance.update leave_balance.delete
 audit_log.read         audit_log.export
 ```
 
 The FE must still handle `403` from the API. UI guards improve the experience but are not a security boundary.
 
-### 4) Current permission limitation
+### 4) Permission list in the session response
 
-The current `GET /api/v1/auth/get-me` response contains the user's role but does not yet contain the resolved permission list. Until a current-user permission endpoint is available, the FE should:
+`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, and `GET /api/v1/auth/get-me` all return the resolved `permissions` array. The frontend should:
 
-1. Use the role as a temporary UI fallback.
-2. Treat the API response as the final authorization decision.
-3. Request a BE endpoint such as `GET /api/v1/auth/permissions` for permission-based UI guards.
+1. Use `permissions` for menu, route, and action guards.
+2. Treat the API response as the final authorization decision — a `403` can still occur after a role change.
+
+The access token lives for 15 minutes. When a protected request returns `401`, call `POST /api/v1/auth/refresh` once and retry; do not loop. The refresh token is rotated on every use, and reusing an old one revokes every active session for that user. Revoking a session stops renewal immediately; an access token that was already issued stays valid until it expires, at most 15 minutes.
 
 For the admin role-management screen, the available endpoints are:
 
@@ -449,9 +467,9 @@ Planned improvements for the next development cycle:
 - [x] **Role and permission management** — allow administrators to create custom roles and assign permissions without changing application code.
 - [ ] **Permission-aware API documentation** — document the required role or permission for each protected endpoint in the OpenAPI specification.
 - [ ] **Automated authentication and authorization tests** — cover login, token validation, role restrictions, permission checks, and unauthorized access responses.
-- [ ] **Refresh token and session management** — support secure token renewal and server-side session revocation.
+- [x] **Refresh token and session management** — 15-minute access token, rotating refresh token, server-side revocation, and a per-device session list.
 - [ ] **Employee data import** — add validated CSV/XLSX import with a preview step and an import result report.
-- [ ] **Notifications** — provide email or in-app notifications for account status changes, employee updates, and important audit events.
+- [x] **Notifications** — in-app notifications plus an email outbox drained by a background job. Email delivery requires `SMTP_HOST` and `MAIL_FROM`; without them, messages stay `PENDING` and are retried.
 - [ ] **Soft delete and data recovery** — preserve deleted records where required and provide a controlled recovery workflow.
 - [ ] **Production observability** — add structured logging, metrics, error tracking, and health checks for dependent services.
 
@@ -484,6 +502,9 @@ If you want to add automated tests later, this project is structured to support 
 - The backend expects PostgreSQL to be running locally or in your target environment.
 - JWT secret and DB credentials must be valid in `.env`.
 - `NODE_ENV` should be set according to the environment (`development`, `production`, etc.).
+- Email notifications require `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `MAIL_FROM`. Without them, `/health` reports `mail_configured: false` and the outbox keeps retrying instead of dropping messages.
+- Background jobs run in-process with `node-cron`. Set `DISABLE_JOBS=true` for test or one-off processes. The design assumes a single Railway instance.
+- After migrating, run `npm run link:users` to backfill `users.employee_id` by matching email, then `npm run link:users -- --apply` to write. Users without a match are listed for manual assignment.
 
 ## Production / Deployment Notes
 

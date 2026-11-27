@@ -29,6 +29,21 @@ const resolveRoleId = async (roleName) => {
   return role.id
 }
 
+const resolveEmployeeLink = async (employeeId) => {
+  if (employeeId === undefined) return undefined
+  if (employeeId === null) return null
+
+  const employee = await db.Employee.findByPk(employeeId, {
+    attributes: ['id', 'status']
+  })
+
+  if (!employee || !employee.status) {
+    throw { code: HttpStatusCode.BadRequest, message: 'Employee does not exist or is inactive' }
+  }
+
+  return employee.id
+}
+
 class Controller {
   static async getUser(req, res, next) {
     try {
@@ -87,6 +102,7 @@ class Controller {
         SELECT
           u.id,
           u.email,
+          u.employee_id,
           r.name AS role,
           u.status,
           u.created_at,
@@ -148,11 +164,13 @@ class Controller {
   static async createUser(req, res, next) {
     try {
       const payload = validateRequest(createUserSchema, { body: req.body })
+      const employeeId = await resolveEmployeeLink(payload.employee_id)
 
       const user = await User.create({
         id: cuid(),
         email: payload.email,
         role_id: payload.role_id,
+        employee_id: employeeId ?? null,
         status: payload.status,
         password: await hashPassword(payload.password)
       })
@@ -184,6 +202,10 @@ class Controller {
       const payload = validateRequest(updateUserSchema, { body: req.body })
       const oldData = getPublicUser(user)
       const updates = { ...payload }
+
+      if (payload.employee_id !== undefined) {
+        updates.employee_id = await resolveEmployeeLink(payload.employee_id)
+      }
 
       if (updates.role) {
         updates.role_id = await resolveRoleId(updates.role)

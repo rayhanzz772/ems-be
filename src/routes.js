@@ -15,6 +15,7 @@ router.use('/branches', require('./modules/branch/index'))
 router.use('/positions', require('./modules/position/index'))
 router.use('/employees', require('./modules/employee/index'))
 router.use('/leaves', require('./modules/leaves/index'))
+router.use('/notifications', require('./modules/notification/index'))
 router.use('/audit-logs', require('./modules/audit-log/index'))
 
 module.exports = router

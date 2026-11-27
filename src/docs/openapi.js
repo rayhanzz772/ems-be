@@ -98,6 +98,7 @@ module.exports = {
     { name: 'Positions' },
     { name: 'Employees' },
     { name: 'Leaves' },
+    { name: 'Notifications' },
     { name: 'Audit Logs' }
   ],
   paths: {
@@ -132,6 +133,61 @@ module.exports = {
       get: secured('Auth', 'Get the authenticated user', {
         200: jsonResponse('Authenticated user'),
         ...standardResponses
+      })
+    },
+    '/api/v1/auth/refresh': {
+      post: operation('Auth', 'Rotate the refresh token and issue a new access token', {
+        200: jsonResponse('Token refreshed'),
+        401: jsonResponse('Invalid, expired, or reused refresh token'),
+        403: jsonResponse('User or role is inactive')
+      }, {
+        description: 'Reads the refresh_token cookie. Returns the new access token as data.token and also sets both auth cookies. A reused (already rotated) token revokes every active session for that user.'
+      })
+    },
+    '/api/v1/auth/logout': {
+      post: operation('Auth', 'Revoke the current session and clear cookies', {
+        200: jsonResponse('Logged out')
+      })
+    },
+    '/api/v1/auth/sessions': {
+      get: secured('Auth', 'List active sessions for the current user', {
+        200: jsonResponse('Active sessions'),
+        ...standardResponses
+      })
+    },
+    '/api/v1/auth/sessions/{id}/revoke': {
+      delete: secured('Auth', 'Revoke one of the current user sessions', {
+        200: jsonResponse('Session revoked'),
+        404: jsonResponse('Session not found'),
+        ...standardResponses
+      }, {
+        parameters: [idParameter]
+      })
+    },
+    '/api/v1/notifications': {
+      get: secured('Notifications', 'List notifications for the current user', {
+        200: jsonResponse('Paginated notifications'),
+        ...standardResponses
+      }, {
+        parameters: [
+          ...paginationParameters,
+          query('unread', { type: 'boolean' }, 'Only return unread notifications')
+        ]
+      })
+    },
+    '/api/v1/notifications/read-all': {
+      patch: secured('Notifications', 'Mark every unread notification as read', {
+        200: jsonResponse('Updated count'),
+        ...standardResponses
+      })
+    },
+    '/api/v1/notifications/{id}/read': {
+      patch: secured('Notifications', 'Mark one notification as read', {
+        200: jsonResponse('Notification marked as read'),
+        404: jsonResponse('Notification not found'),
+        ...standardResponses
+      }, {
+        parameters: [idParameter]
       })
     },
     '/api/v1/roles': {
@@ -514,15 +570,28 @@ module.exports = {
       }, { parameters: [idParameter] })
     },
     [idPath('/api/v1/leaves/requests', 'decision')]: {
-      patch: secured('Leaves', 'Approve or reject a pending leave request', {
+      patch: secured('Leaves', 'Approve or reject a pending leave request at its current level', {
         200: jsonResponse('Leave request decision recorded'),
+        403: jsonResponse('Caller is not allowed to decide at this level'),
         404: jsonResponse('Leave request not found'),
         409: jsonResponse('Insufficient leave balance or request is no longer pending'),
         ...standardResponses
       }, {
         parameters: [idParameter],
         requestBody: body('LeaveDecisionRequest'),
-        description: 'Balance-based leave must fall within one calendar year. Approval consumes balance atomically.'
+        description: 'Level 1 requires leave_request.decide_direct_report plus a match on the assigned manager. Level 2 requires leave_request.decide. Rejecting at level 1 ends the request; approving moves it to level 2. Balance is consumed only on final approval. A requester can never decide their own request.'
+      })
+    },
+    [idPath('/api/v1/leaves/requests', 'submit')]: {
+      patch: secured('Leaves', 'Resubmit a rejected leave request', {
+        200: jsonResponse('Leave request resubmitted'),
+        403: jsonResponse('Caller does not own the request and is not HR'),
+        404: jsonResponse('Leave request not found'),
+        409: jsonResponse('Leave request is not rejected or dates overlap'),
+        ...standardResponses
+      }, {
+        parameters: [idParameter],
+        description: 'Resets the request to PENDING, resolves the approval chain again, and recalculates duration from the stored dates.'
       })
     },
     [idPath('/api/v1/leaves/requests', 'cancel')]: {
@@ -670,11 +739,12 @@ module.exports = {
       },
       UserCreateRequest: {
         type: 'object',
-        required: ['email', 'password'],
+        required: ['email', 'password', 'role_id'],
         properties: {
           email: { type: 'string', format: 'email' },
           password: { type: 'string', minLength: 8, format: 'password' },
-          role: { type: 'string', enum: ['ADMIN', 'HR', 'EMPLOYEE'], default: 'EMPLOYEE' },
+          role_id: { type: 'string', description: 'Role UUID from GET /api/v1/users/roles' },
+          employee_id: { type: 'string', nullable: true, description: 'Link this account to an active employee' },
           status: { type: 'boolean', default: true }
         }
       },
@@ -684,7 +754,8 @@ module.exports = {
         properties: {
           email: { type: 'string', format: 'email' },
           password: { type: 'string', minLength: 8, format: 'password' },
-          role: { type: 'string', enum: ['ADMIN', 'HR', 'EMPLOYEE'] },
+          role_id: { type: 'string' },
+          employee_id: { type: 'string', nullable: true, description: 'Send null to unlink from the employee' },
           status: { type: 'boolean' }
         }
       },
@@ -765,19 +836,12 @@ module.exports = {
       },
       LeaveRequestCreateRequest: {
         type: 'object',
-        required: ['employee_id', 'leave_type_id', 'start_date', 'end_date', 'duration_days', 'reason'],
+        required: ['employee_id', 'leave_type_id', 'start_date', 'end_date', 'reason'],
         properties: {
           employee_id: { type: 'string' },
           leave_type_id: { type: 'string' },
-          approver_id: { type: 'string', nullable: true },
           start_date: { type: 'string', format: 'date' },
           end_date: { type: 'string', format: 'date' },
-          duration_days: {
-            type: 'number',
-            exclusiveMinimum: 0,
-            maximum: 999.99,
-            description: 'Explicit leave duration; working days and holidays are not calculated automatically.'
-          },
           reason: { type: 'string', minLength: 1, maxLength: 5000 }
         }
       },
@@ -786,10 +850,8 @@ module.exports = {
         minProperties: 1,
         properties: {
           leave_type_id: { type: 'string' },
-          approver_id: { type: 'string', nullable: true },
           start_date: { type: 'string', format: 'date' },
           end_date: { type: 'string', format: 'date' },
-          duration_days: { type: 'number', exclusiveMinimum: 0, maximum: 999.99 },
           reason: { type: 'string', minLength: 1, maxLength: 5000 }
         }
       },

@@ -11,6 +11,18 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'role_id',
         as: 'role'
       })
+      User.belongsTo(models.Employee, {
+        foreignKey: 'employee_id',
+        as: 'employee'
+      })
+      User.hasMany(models.UserSession, {
+        foreignKey: 'user_id',
+        as: 'sessions'
+      })
+      User.hasMany(models.Notification, {
+        foreignKey: 'user_id',
+        as: 'notifications'
+      })
     }
   }
 
@@ -38,6 +50,15 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: true
+      },
+      employee_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'employee_id',
+        references: {
+          model: 'employees',
+          key: 'id'
+        }
       },
       password: {
         type: DataTypes.STRING,

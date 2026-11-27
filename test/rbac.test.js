@@ -65,3 +65,41 @@ test('rejects an inactive role', async () => {
 
   assert.equal(result.receivedError.statusCode, 403)
 })
+
+test('accepts any permission from a list and exposes employee context', async () => {
+  const result = await runMiddleware(
+    ['leave_request.decide', 'leave_request.decide_direct_report'],
+    {
+      id: 'user-1',
+      status: true,
+      employee_id: 'emp-1',
+      role: {
+        name: 'EMPLOYEE',
+        status: true,
+        permissions: [{ key: 'leave_request.decide_direct_report' }]
+      }
+    }
+  )
+
+  assert.equal(result.receivedError, undefined)
+  assert.equal(result.request.user.employeeId, 'emp-1')
+  assert.deepEqual(result.request.user.permissions, ['leave_request.decide_direct_report'])
+})
+
+test('rejects a user who has none of the listed permissions', async () => {
+  const result = await runMiddleware(
+    ['leave_request.decide', 'leave_request.decide_direct_report'],
+    {
+      id: 'user-1',
+      status: true,
+      role: {
+        name: 'EMPLOYEE',
+        status: true,
+        permissions: [{ key: 'leave_request.read' }]
+      }
+    }
+  )
+
+  assert.equal(result.receivedError.statusCode, 403)
+  assert.match(result.receivedError.message, /leave_request\.decide \| leave_request\.decide_direct_report/)
+})

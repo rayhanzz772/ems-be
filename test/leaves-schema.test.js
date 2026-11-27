@@ -25,7 +25,7 @@ test('leave type schemas validate required fields and optional updates', () => {
   assert.deepEqual(updateLeaveTypeSchema.parse({ is_active: false }), { is_active: false })
 })
 
-test('leave request schemas validate real ordered dates and positive durations', () => {
+test('leave request schemas validate real ordered dates and ignore client duration', () => {
   const validRequest = {
     employee_id: 'employee-1',
     leave_type_id: 'leave-type-1',
@@ -34,7 +34,8 @@ test('leave request schemas validate real ordered dates and positive durations',
     duration_days: 2,
     reason: 'Personal matter'
   }
-  assert.equal(createLeaveRequestSchema.safeParse(validRequest).success, true)
+  const parsed = createLeaveRequestSchema.parse(validRequest)
+  assert.equal(parsed.duration_days, undefined)
   assert.equal(createLeaveRequestSchema.safeParse({
     ...validRequest,
     start_date: '2026-02-30'
@@ -42,10 +43,6 @@ test('leave request schemas validate real ordered dates and positive durations',
   assert.equal(createLeaveRequestSchema.safeParse({
     ...validRequest,
     end_date: '2026-10-09'
-  }).success, false)
-  assert.equal(createLeaveRequestSchema.safeParse({
-    ...validRequest,
-    duration_days: 0
   }).success, false)
   assert.deepEqual(updateLeaveRequestSchema.parse({ reason: 'Updated reason' }), {
     reason: 'Updated reason'

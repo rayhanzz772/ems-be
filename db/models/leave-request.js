@@ -24,6 +24,18 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'decided_by',
         as: 'decider'
       })
+      LeaveRequest.belongsTo(models.Employee, {
+        foreignKey: 'level_1_employee_id',
+        as: 'level_1_employee'
+      })
+      LeaveRequest.belongsTo(models.User, {
+        foreignKey: 'level_1_decided_by',
+        as: 'level_1_decider'
+      })
+      LeaveRequest.belongsTo(models.User, {
+        foreignKey: 'level_2_decided_by',
+        as: 'level_2_decider'
+      })
     }
   }
 
@@ -49,6 +61,46 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: true,
         references: { model: 'employees', key: 'id' }
+      },
+      current_level: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        validate: { isIn: [['LEVEL_1', 'LEVEL_2']] }
+      },
+      level_1_employee_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        references: { model: 'employees', key: 'id' }
+      },
+      level_1_decided_by: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        references: { model: 'users', key: 'id' }
+      },
+      level_1_decided_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+      level_1_note: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      level_2_decided_by: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        references: { model: 'users', key: 'id' }
+      },
+      level_2_decided_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+      level_2_note: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      escalated_at: {
+        type: DataTypes.DATE,
+        allowNull: true
       },
       start_date: {
         type: DataTypes.DATEONLY,
